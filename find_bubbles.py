@@ -85,8 +85,8 @@ class Atom:
         elif self.name[0] == "H" or isinstance(self.name[0], int) == True:
             self.mass = 1
         else:
-            print("WARNING:", self.name+": element not identified")
-            print("Setting mass to o")
+            #print("WARNING:", self.name+": element not identified")
+            #print("Setting mass to 0")
             self.mass = 0
         return
 
@@ -258,7 +258,7 @@ class grid():
                 dy /= 100
                 for dz in z_range:
                     dz /= 100
-                    self.mass_array[(dx, dy, dz)] = 0
+                    self.mass_array[(dx, dy, dz)] = 0.0
 
     def apply_boundaries(self, atoms):
 
@@ -302,7 +302,7 @@ class grid():
 
                 #if (x, y, z) not in self.mass_array:
                 #    self.mass_array[(x, y, z)] = 0
-                self.mass_array[(x, y, z)] += atom.mass
+                self.mass_array[(x, y, z)] += float(atom.mass)
 
             else:
                 
@@ -334,7 +334,11 @@ class grid():
 
                             #if (dx, dy, dz) not in self.mass_array:
                             #    self.mass_array[(dx, dy, dz)] = 0
-                            self.mass_array[(dx, dy, dz)] += atom.mass*2
+                            self.mass_array[(dx, dy, dz)] += float(atom.mass*2)
+
+        #with open("mass_array", "w") as mass_file:
+        #    for crds in self.mass_array:
+        #        mass_file.write(str(self.mass_array[crds])+"\n")
                         
 
     def calculate_densities(self):
@@ -349,6 +353,8 @@ class grid():
             x, y, z = crds[:]
             L_x, L_y, L_z = self.boundaries[:]
 
+            #print((x-self.grid_space*total_cells), (y-self.grid_space*total_cells), (z-self.grid_space*total_cells))
+
             volume = 0
             total_mass = 0
 
@@ -360,6 +366,7 @@ class grid():
                 dx /= 100
                 for dy in y_range:
                     dy /= 100
+                    ji = 0
                     for dz in z_range:
                         dz /= 100
 
@@ -378,17 +385,29 @@ class grid():
                             dz -= L_z
                         while dz < 0:
                             dz += L_z
+
+                        #print([dx, dy, dz])
+                        #print(self.mass_array[(dx, dy, dz)])
+                        #exit()
                         
                         #if (dx, dy, dz) in self.mass_array:
                         total_mass += self.mass_array[(dx, dy, dz)]
                         volume += self.grid_space**3
- 
+                        #ji += 1
+
             self.densities[crds] = total_mass/volume * 1.66
+            #print("")
+            #print(self.densities[crds])
+            #exit()
             
             percentage = int((i / total) * 100)
 
             if i == 1 or percentage > (i - 1) / total * 100:
                 print(f"Completed {percentage}%")
+
+        with open("densities", "w") as density_file:
+            for crds in self.densities:
+                density_file.write(str(self.densities[crds])+"\n")
 
 
 class bubble():
@@ -405,7 +424,7 @@ class bubble():
         for crds in box_densities:
             x, y, z = crds[:]
 
-            if box_densities[crds] < 0.7:
+            if box_densities[crds] < 0.6:
                 self.total_atoms += 1
                 x += grid_space/2
                 y += grid_space/2
