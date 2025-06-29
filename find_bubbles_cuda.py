@@ -454,8 +454,8 @@ def main():
     start_time = time.perf_counter()
     
     pdb = PDB(pdb_filename)
-    #pdb.read()
-    pdb.read_box()
+    pdb.read()
+    #pdb.read_box()
     end_time = time.perf_counter()
     print("PDB reading time: " + str(end_time - start_time) + "\n")
     #pdb.read_pdb_parallel()
@@ -463,7 +463,7 @@ def main():
 
     if pdb.box:
         print("Box information found. Coordinates will be reshaped to orthorombic.")
-        #pdb.box.reshape_atoms_to_orthorombic(pdb.coords)
+        pdb.box.reshape_atoms_to_orthorombic(pdb.coords)
         #output_name = pdb_filename.split(".")[:-1]
         #output_name = "".join(output_name) + "_wrapped.pdb"
         #pdb.write(output_name)
@@ -482,7 +482,7 @@ def main():
     end_time = time.perf_counter()
     print("Box wrapping time: " + str(end_time - start_time) + "\n")
 
-    pdb.resnames, pdb.coords, pdb.masses = load_npz_to_gpu("wrapped_data.npz")
+    #pdb.resnames, pdb.coords, pdb.masses = load_npz_to_gpu("wrapped_data.npz")
     box_grid.initialize_cells_cuda()
     end_time = time.perf_counter()
     print("Grid initialized: " + str(end_time - start_time) + "\n")
