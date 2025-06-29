@@ -1,6 +1,11 @@
 import sys
 import numpy as np
 import math
+import cupy as cp
+import time
+from concurrent.futures import ProcessPoolExecutor
+
+#import MDAnalysis as mda
 
 class Atom:
 
@@ -96,47 +101,127 @@ class PDB():
         self.filename = filename
         self.box = None
 
-    def read(self):
-        """Read a PDB file and extract atomic coordinates and CRYST1 line."""
-        self.atoms = []
-        self.cryst1 = None
+    def parse_lines(self, lines):
+        names, resnames, masses, coords = [], [], [], []
+
+        atomic_masses = {
+            'H': 1.0, 'C': 12.0, 'N': 14.0, 'O': 16.0,
+            'P': 31.0, 'S': 32.0, 'Cl': 35.5, 'F': 19.0,
+            'Mg': 24.3, 'Zn': 65.4, 'Cu': 63.5, 'Na': 23.0,
+            'Br': 79.9, 'I': 126.9,
+        }
+
+        for line in lines:
+            if line.startswith(("ATOM", "HETATM")):
+                name = line[12:16].strip()
+                resname = line[17:20]
+                x = float(line[30:38])
+                y = float(line[38:46])
+                z = float(line[46:54])
+
+                # Heuristic: deduce element from atom name
+                element = ''.join(filter(str.isalpha, name)).capitalize()
+                element = element if element in atomic_masses else element[0]
+                mass = atomic_masses[element]
+
+                names.append(name)
+                resnames.append(resname)
+                masses.append(mass)
+                coords.append((x, y, z))
+
+        return names, resnames, masses, coords
+
+    def read_pdb_parallel(self, lines_per_chunk=500_000):
         with open(self.filename, 'r') as f:
-            self.lines = f.readlines()
+            all_lines = f.readlines()
 
-        for line in self.lines:
-            if line.startswith("CRYST1"):
-                self.box = Box()
-                self.box.get_attributes(line)
-            elif line.startswith(("ATOM", "HETATM")):
-                atom = Atom()
-                atom.get_attributes(line)
-                self.atoms.append(atom)
+        # Remove CRYST1 and non-atom lines if needed later
+        chunks = [all_lines[i:i + lines_per_chunk] for i in range(0, len(all_lines), lines_per_chunk)]
 
-        return
-    
-    def write(self, output_filename):
+        with ProcessPoolExecutor() as executor:
+            results = list(executor.map(self.parse_lines, chunks))
 
-        a, b, c = self.box.length[:]
-        alpha, beta, gamma = 90, 90, 90
-        CRYST1_line = "CRYST1{:9.3f}{:9.3f}{:9.3f}{:7.2f}{:7.2f}{:7.2f} P 1\n".format(
-            a, b, c, alpha, beta, gamma)
-        with open(output_filename, "w") as pdb:
-            pdb.write(CRYST1_line)
-            atom_i = 0
-            for line in self.lines:
-                if line.startswith(("ATOM", "HETATM")):
-                    crds = self.atoms[atom_i].crds
-                    before_crds = line[:30]
-                    after_crds = line[54:]
+        # Merge lists
+        self.names     = np.array(sum((r[0] for r in results), []), dtype='U4')
+        self.resnames  = np.array(sum((r[1] for r in results), []), dtype='U4')
+        self.masses    = np.array(sum((r[2] for r in results), []), dtype=np.float32)
+        self.coords    = np.array(sum((r[3] for r in results), []), dtype=np.float32)
 
-                    atom_str = before_crds + "{:8.3f}{:8.3f}{:8.3f}".format(
-                        crds[0], crds[1], crds[2]) + after_crds
+        return #self.names, self.names, self.masses, self.coords
 
-                    pdb.write(atom_str)
-                    atom_i += 1
+    def read(self):
+        #self.names = []
+        #self.masses = []
+        #self.coords = []
 
-                elif not line.startswith("CRYST1"):
-                    pdb.write(line)
+        atomic_masses = {
+            'H': 1.0, 'C': 12.0, 'N': 14.0, 'O': 16.0,
+            'P': 31.0, 'S': 32.0, 'Cl': 35.5, 'F': 19.0,
+            'Mg': 24.3, 'Zn': 65.4, 'Cu': 63.5, 'Na': 23.0,
+            'Br': 79.9, 'I': 126.9,
+        }
+
+        with open(self.filename, 'r') as f:
+            #masses = np.empty(total_atoms, dtype=np.float32)
+            #coords = np.empty((total_atoms, 3), dtype=np.float32)
+            #names = np.empty(total_atoms, dtype='U4')
+#
+            total_atoms = 0
+            for line in f:
+                if line.startswith("ATOM") or line.startswith("HETATM"):
+                    total_atoms += 1
+
+            print("Total atoms identified:", total_atoms)
+            self.masses = np.empty(total_atoms, dtype=np.float32)
+            self.coords = np.empty((total_atoms, 3), dtype=np.float32)
+            #self.names = np.empty(total_atoms, dtype='U4')
+            self.resnames = np.empty(total_atoms, dtype='U4')
+
+
+        with open(self.filename, 'r') as f:
+            idx = 0
+            for line in f:
+                if line.startswith("CRYST1"):
+                    self.box = Box()
+                    self.box.get_attributes(line)
+                elif line.startswith("ATOM") or line.startswith("HETATM"):
+                    name = line[12:16].strip()
+                    resname = line[17:20]
+                    x = float(line[30:38])
+                    y = float(line[38:46])
+                    z = float(line[46:54])
+
+                    element = ''.join(filter(str.isalpha, name)).capitalize()
+                    element = element if element in atomic_masses else element[0]
+                    if element not in atomic_masses:
+                        #print("WARNING:", self.name+": element not identified")
+                        #print("Setting mass to 0")
+                        mass = 0
+                    else:
+                        mass = atomic_masses[element]
+
+                    self.resnames[idx] = resname
+                    self.masses[idx] = mass
+                    self.coords[idx][0] = x
+                    self.coords[idx][1] = y
+                    self.coords[idx][2] = z
+                    idx += 1
+
+                #percentage = int((idx / total_atoms) * 100)
+                #if idx == 1 or percentage > (idx - 1) / total_atoms * 100:
+                #    print(f"Completed {percentage}%")
+
+            #names=np.array(names)
+            #masses=np.array(masses, dtype=np.float32)
+            #coords=np.array(coords, dtype=np.float32)
+        
+    def read_box(self):
+        with open(self.filename, 'r') as f:
+            for line in f:
+                if line.startswith("CRYST1"):
+                    self.box = Box()
+                    self.box.get_attributes(line)
+
 
 class Box():
 
@@ -172,20 +257,20 @@ class Box():
         #self.length = np.diag(self.vectors)
         #print(self.length)
 
-    def reshape_atoms_to_orthorombic(self, atoms):
+    def reshape_atoms_to_orthorombic(self, pdb_coordinates):
 
         self.length = np.diag(self.vectors)
-        for atom in atoms:
+        for crds in pdb_coordinates:
             for j in range(2):
-                scale3 = math.floor(atom.crds[2]/self.length[2])
-                atom.crds[0] -= scale3*self.vectors[2][0]
-                atom.crds[1] -= scale3*self.vectors[2][1]
-                atom.crds[2] -= scale3*self.vectors[2][2]
-                scale2 = math.floor(atom.crds[1]/self.length[1])
-                atom.crds[0] -= scale2*self.vectors[1][0]
-                atom.crds[1] -= scale2*self.vectors[1][1]
-                scale1 = math.floor(atom.crds[0]/self.length[0])
-                atom.crds[0] -= scale1*self.vectors[0][0]
+                scale3 = np.floor(crds[2]/self.length[2])
+                crds[0] -= scale3*self.vectors[2][0]
+                crds[1] -= scale3*self.vectors[2][1]
+                crds[2] -= scale3*self.vectors[2][2]
+                scale2 = np.floor(crds[1]/self.length[1])
+                crds[0] -= scale2*self.vectors[1][0]
+                crds[1] -= scale2*self.vectors[1][1]
+                scale1 = np.floor(crds[0]/self.length[0])
+                crds[0] -= scale1*self.vectors[0][0]
 
         alpha, beta, gamma = np.radians([90, 90, 90])
         self.angles = np.array([alpha, beta, gamma])
@@ -198,21 +283,27 @@ class Box():
 class grid():
 
     def __init__(self, grid_space):
-        self.mass_array = {}
+        self.mass_array = []
+        self.coordinates = []
         self.grid_space = grid_space
-        self.densities = {}
+        self.densities = []
+        self.cells_i = []
+        self.mass_array_dict = {}
 
-    def get_boundaries(self, atoms, box_length):
+    def get_boundaries(self, pdb):
 
-        if np.all(box_length == 0):
+        if not pdb.box:
 
             xmax, ymax, zmax = -np.inf, -np.inf, -np.inf
             xmin, ymin, zmin = np.inf, np.inf, np.inf
-            for atom in atoms:
-                if atom.resname == "HOH" or atom.resname == "WAT" or \
-                    atom.resname == "Cl-" or atom.resname == "Na+":
+            for i in range(len(pdb.coordinates)):
+            #for atom in atoms:
+                resname = pdb.resname[i]
+                coords = pdb.coords[i]
+                if resname == "HOH" or resname == "WAT" or \
+                    resname == "Cl-" or resname == "Na+":
 
-                    x, y, z = atom.crds[:]
+                    x, y, z = coords[:]
 
                     if x > xmax:
                         xmax = x
@@ -232,8 +323,8 @@ class grid():
             L_z = zmax-zmin
         
         else:
-
-            L_x, L_y, L_z = box_length[:]
+            L_x, L_y, L_z = pdb.box.length[:]
+            #print(L_x, L_y, L_z)
 
         #L_x -= 1
         #L_y -= 1
@@ -244,7 +335,9 @@ class grid():
         L_z = np.floor(L_z / self.grid_space) * self.grid_space
         self.boundaries = np.array([L_x, L_y, L_z])
 
-    def initialize(self):
+    def initialize_cells(self):
+
+        #print("Initializing grid")
 
         L_x, L_y, L_z = self.boundaries[:]
 
@@ -252,186 +345,362 @@ class grid():
         y_range = range(0, int((L_y+self.grid_space)*100), int(self.grid_space*100))
         z_range = range(0, int((L_z+self.grid_space)*100), int(self.grid_space*100))
 
+        self.xcells = int((L_x + self.grid_space) / self.grid_space)
+        self.ycells = int((L_y + self.grid_space) / self.grid_space)
+        self.zcells = int((L_z + self.grid_space) / self.grid_space)
+
+        #print(self.xcells, self.ycells, self.zcells)
+
+        #print(total_xcoord * total_ycoord * total_zcoord)
+        #exit()
+        total_coordinates = self.xcells * self.ycells * self.zcells
+
+        self.mass_array = np.array([0.0]*total_coordinates)
+        self.densities = np.array([0.0]*total_coordinates)
+        self.coordinates = np.array([[0.0, 0.0, 0.0]]*total_coordinates)
+        #print(self.coordinates)
+        #exit()
+
+        i = 0
         for dx in x_range:
             dx /= 100
             for dy in y_range:
                 dy /= 100
                 for dz in z_range:
                     dz /= 100
-                    self.mass_array[(dx, dy, dz)] = 0.0
+                    self.coordinates[i][0] = dx
+                    self.coordinates[i][1] = dy
+                    self.coordinates[i][2] = dz
+                    self.mass_array[i] = 0
+                    self.mass_array_dict[(dx, dy, dz)] = 0
+                    i += 1
+    
+    def initialize_cells_np(self):
+        L_x, L_y, L_z = self.boundaries
+        spacing = self.grid_space
 
-    def apply_boundaries(self, atoms):
+        # Compute grid dimensions
+        self.xcells = int((L_x + spacing) / spacing)
+        self.ycells = int((L_y + spacing) / spacing)
+        self.zcells = int((L_z + spacing) / spacing)
+        total_coordinates = self.xcells * self.ycells * self.zcells
+
+        # Only allocate what is strictly necessary
+        self.mass_array = np.zeros(total_coordinates, dtype=np.float32)
+        self.densities = np.zeros(total_coordinates, dtype=np.float32)
+
+    def initialize_cells_cuda(self):
+        L_x, L_y, L_z = self.boundaries
+        spacing = self.grid_space
+
+        # Compute grid dimensions
+        self.xcells = int((L_x + spacing) / spacing)
+        self.ycells = int((L_y + spacing) / spacing)
+        self.zcells = int((L_z + spacing) / spacing)
+        total_coordinates = self.xcells * self.ycells * self.zcells
+
+        # Only allocate what is strictly necessary
+        self.mass_array = cp.zeros(total_coordinates, dtype=cp.float32)
+        self.densities = cp.zeros(total_coordinates, dtype=cp.float32)
+            
+
+    def apply_boundaries_to_protein(self, pdb):
 
         #Apply periodic boundary conditions to protein atoms
-        for atom in atoms:
+        for coords in pdb.coords:
             
             L_x, L_y, L_z = self.boundaries[:]
             
-            while atom.crds[0] > L_x:
-                atom.crds[0] -= L_x
-            while atom.crds[0] < 0:
-                atom.crds[0] += L_x
+            while coords[0] > L_x:
+                coords[0] -= L_x
+            while coords[0] < 0:
+                coords[0] += L_x
 
-            while atom.crds[1] > L_y:
-                atom.crds[1] -= L_y
-            while atom.crds[1] < 0:
-                atom.crds[1] += L_y
+            while coords[1] > L_y:
+                coords[1] -= L_y
+            while coords[1] < 0:
+                coords[1] += L_y
 
-            while atom.crds[2] > L_z:
-                atom.crds[2] -= L_z
-            while atom.crds[2] < 0:
-                atom.crds[2] += L_z
-
-    def fill(self, atoms):
+            while coords[2] > L_z:
+                coords[2] -= L_z
+            while coords[2] < 0:
+                coords[2] += L_z
 
 
-        L_x, L_y, L_z = self.boundaries[:]
+    def calculate_cell_masses_cuda(self, pdb, chunk_size=5000):
+        spacing = self.grid_space
+        xcells, ycells, zcells = self.xcells, self.ycells, self.zcells
+        total_cells = xcells * ycells * zcells
 
-        for atom in atoms:
+        if not hasattr(self, 'mass_array') or self.mass_array.size != total_cells:
+            self.mass_array = cp.zeros(total_cells, dtype=cp.float32)
+        else:
+            self.mass_array.fill(0)  # Reset if previously allocated
 
-            self.n_atoms = atom.id
-            self.n_residues = atom.resid
+        num_atoms = len(pdb.coords)
+        last_percent = -1
 
-            x, y, z = atom.crds[:]
-            x = np.floor(x / self.grid_space) * self.grid_space
-            y = np.floor(y / self.grid_space) * self.grid_space
-            z = np.floor(z / self.grid_space) * self.grid_space
-            
-            if atom.resname == "HOH" or atom.resname == "WAT" or \
-                    atom.resname == "Cl-" or atom.resname == "Na+":
+        for start in range(0, num_atoms, chunk_size):
+            end = min(start + chunk_size, num_atoms)
 
-                #if (x, y, z) not in self.mass_array:
-                #    self.mass_array[(x, y, z)] = 0
-                self.mass_array[(x, y, z)] += float(atom.mass)
+            # Print progress every 5%
+            percent = int(100 * end / num_atoms)
+            if percent != last_percent and percent % 5 == 0:
+                print(f"Calculating cell masses... {percent}% complete")
+                last_percent = percent
 
-            else:
-                
-                x_range = range(int((x-self.grid_space)*100), int((x+self.grid_space*2)*100), int(self.grid_space*100))
-                y_range = range(int((y-self.grid_space)*100), int((y+self.grid_space*2)*100), int(self.grid_space*100))
-                z_range = range(int((z-self.grid_space)*100), int((z+self.grid_space*2)*100), int(self.grid_space*100))
+            # Batch data
+            coords_batch = pdb.coords[start:end]
+            masses_batch = pdb.masses[start:end]
+            resnames_batch = pdb.resnames[start:end]
 
-                for dx in x_range:
-                    dx /= 100
-                    for dy in y_range:
-                        dy /= 100
-                        for dz in z_range:
-                            dz /= 100
+            # Transfer to GPU
+            coords = cp.asarray(coords_batch, dtype=cp.float32)
+            masses = cp.asarray(masses_batch, dtype=cp.float32)
 
-                            while dx > L_x:
-                                dx -= L_x
-                            while dx < 0:
-                                dx += L_x
-                            #
-                            while dy > L_y:
-                                dy -= L_y
-                            while dy < 0:
-                                dy += L_y
-                            #
-                            while dz > L_z:
-                                dz -= L_z
-                            while dz < 0:
-                                dz += L_z
+            # Grid coordinates per atom
+            grid_coords = cp.floor(coords / spacing).astype(cp.int32)
+            xi, yi, zi = grid_coords[:, 0], grid_coords[:, 1], grid_coords[:, 2]
 
-                            #if (dx, dy, dz) not in self.mass_array:
-                            #    self.mass_array[(dx, dy, dz)] = 0
-                            self.mass_array[(dx, dy, dz)] += float(atom.mass*2)
+            # Create water/ion mask (still on CPU)
+            resnames_cpu = resnames_batch
+            is_water = cp.asarray([r in {"HOH", "WAT", "Cl-", "Na+"} for r in resnames_cpu], dtype=cp.bool_)
 
-        #with open("mass_array", "w") as mass_file:
-        #    for crds in self.mass_array:
-        #        mass_file.write(str(self.mass_array[crds])+"\n")
-                        
+            # -------------------------------
+            # Handle water/ion atoms
+            # -------------------------------
+            if cp.any(is_water):
+                xi_w = xi[is_water] % xcells
+                yi_w = yi[is_water] % ycells
+                zi_w = zi[is_water] % zcells
+                mw = masses[is_water]
 
-    def calculate_densities(self):
+                ids = xi_w * ycells * zcells + yi_w * zcells + zi_w
+                cp.add.at(self.mass_array, ids, mw)
 
-        #print(self.array)
-        #print("")
-        self.densities = {}
-        total = len(self.mass_array)
-        total_cells = 6
-        for i, crds in enumerate(self.mass_array):
+            # -------------------------------
+            # Handle non-water atoms
+            # -------------------------------
+            is_nonwater = ~is_water
+            if cp.any(is_nonwater):
+                coords_nw = grid_coords[is_nonwater]
+                mnw = masses[is_nonwater]
 
-            x, y, z = crds[:]
-            L_x, L_y, L_z = self.boundaries[:]
+                neighbor_range = cp.arange(-1, 2, dtype=cp.int32)
+                dx, dy, dz = cp.meshgrid(neighbor_range, neighbor_range, neighbor_range, indexing='ij')
+                offsets = cp.stack([dx.ravel(), dy.ravel(), dz.ravel()], axis=1)  # (27, 3)
 
-            #print((x-self.grid_space*total_cells), (y-self.grid_space*total_cells), (z-self.grid_space*total_cells))
+                # Neighbor cells per atom: shape (N_atoms, 27, 3)
+                neighbors = coords_nw[:, None, :] + offsets[None, :, :]
+                neighbors %= cp.array([xcells, ycells, zcells], dtype=cp.int32)
 
-            volume = 0
-            total_mass = 0
+                # Compute flattened 1D indices for the grid
+                xi_n = neighbors[:, :, 0]
+                yi_n = neighbors[:, :, 1]
+                zi_n = neighbors[:, :, 2]
+                linear_idx = xi_n * ycells * zcells + yi_n * zcells + zi_n  # shape: (N_atoms, 27)
 
-            x_range = range(int((x-self.grid_space*total_cells)*100), int((x+self.grid_space*(total_cells+1))*100), int(self.grid_space*100))
-            y_range = range(int((y-self.grid_space*total_cells)*100), int((y+self.grid_space*(total_cells+1))*100), int(self.grid_space*100))
-            z_range = range(int((z-self.grid_space*total_cells)*100), int((z+self.grid_space*(total_cells+1))*100), int(self.grid_space*100))
+                # Expand each atom's mass to its 27 neighbors, multiplied by 2.0
+                mnw_expanded = cp.tile(mnw[:, None] * 2.0, (1, 27))  # shape: (N_atoms, 27)
 
-            for dx in x_range:
-                dx /= 100
-                for dy in y_range:
-                    dy /= 100
-                    ji = 0
-                    for dz in z_range:
-                        dz /= 100
+                # Accumulate masses in the global mass_array
+                cp.add.at(self.mass_array, linear_idx.ravel(), mnw_expanded.ravel())
 
-                        #Apply periodic boundary conditions to the cell crds
-                        while dx > L_x:
-                            dx -= L_x
-                        while dx < 0:
-                            dx += L_x
-                        #
-                        while dy > L_y:
-                            dy -= L_y
-                        while dy < 0:
-                            dy += L_y
-                        #
-                        while dz > L_z:
-                            dz -= L_z
-                        while dz < 0:
-                            dz += L_z
+        #with open("mass_array_cuda", "w") as mass_file:
+        #    for mass in self.mass_array:
+        #        mass_file.write(str(mass)+"\n")
 
-                        #print([dx, dy, dz])
-                        #print(self.mass_array[(dx, dy, dz)])
-                        #exit()
-                        
-                        #if (dx, dy, dz) in self.mass_array:
-                        total_mass += self.mass_array[(dx, dy, dz)]
-                        volume += self.grid_space**3
-                        #ji += 1
+    def calculate_cell_masses(self, pdb, chunk_size=5000):
+        spacing = self.grid_space
+        xcells, ycells, zcells = self.xcells, self.ycells, self.zcells
+        total_cells = xcells * ycells * zcells
 
-            self.densities[crds] = total_mass/volume * 1.66
-            #print("")
-            #print(self.densities[crds])
-            #exit()
-            
-            percentage = int((i / total) * 100)
+        if not hasattr(self, 'mass_array') or self.mass_array.size != total_cells:
+            self.mass_array = np.zeros(total_cells, dtype=np.float32)
+        else:
+            self.mass_array.fill(0)  # Reset if already allocated
 
-            if i == 1 or percentage > (i - 1) / total * 100:
-                print(f"Completed {percentage}%")
+        num_atoms = len(pdb.coords)
+        last_percent = -1
 
-        with open("densities", "w") as density_file:
-            for crds in self.densities:
-                density_file.write(str(self.densities[crds])+"\n")
+        for start in range(0, num_atoms, chunk_size):
+            end = min(start + chunk_size, num_atoms)
 
+            # Progress update
+            percent = int(100 * end / num_atoms)
+            if percent != last_percent and percent % 5 == 0:
+                print(f"Calculating cell masses... {percent}% complete")
+                last_percent = percent
+
+            # Load atom batch
+            coords_batch = pdb.coords[start:end]
+            masses_batch = pdb.masses[start:end]
+            resnames_batch = pdb.resnames[start:end]
+
+            coords = np.asarray(coords_batch, dtype=np.float32)
+            masses = np.asarray(masses_batch, dtype=np.float32)
+
+            # Convert to grid indices
+            grid_coords = np.floor(coords / spacing).astype(np.int32)
+            xi, yi, zi = grid_coords[:, 0], grid_coords[:, 1], grid_coords[:, 2]
+
+            # Identify water/ions (mask)
+            is_water = np.array([r in {"HOH", "WAT", "Cl-", "Na+"} for r in resnames_batch], dtype=bool)
+
+            # -------------------------------
+            # Water and ion atoms
+            # -------------------------------
+            if np.any(is_water):
+                xi_w = xi[is_water] % xcells
+                yi_w = yi[is_water] % ycells
+                zi_w = zi[is_water] % zcells
+                mw = masses[is_water]
+
+                ids = xi_w * ycells * zcells + yi_w * zcells + zi_w
+                np.add.at(self.mass_array, ids, mw)
+
+            # -------------------------------
+            # Non-water atoms
+            # -------------------------------
+            is_nonwater = ~is_water
+            if np.any(is_nonwater):
+                coords_nw = grid_coords[is_nonwater]
+                mnw = masses[is_nonwater]
+
+                neighbor_range = np.arange(-1, 2, dtype=np.int32)
+                dx, dy, dz = np.meshgrid(neighbor_range, neighbor_range, neighbor_range, indexing='ij')
+                offsets = np.stack([dx.ravel(), dy.ravel(), dz.ravel()], axis=1)  # (27, 3)
+
+                # Compute neighbor coordinates for each atom
+                neighbors = coords_nw[:, None, :] + offsets[None, :, :]
+                neighbors %= np.array([xcells, ycells, zcells], dtype=np.int32)
+
+                # Compute linear indices
+                xi_n = neighbors[:, :, 0]
+                yi_n = neighbors[:, :, 1]
+                zi_n = neighbors[:, :, 2]
+                linear_idx = xi_n * ycells * zcells + yi_n * zcells + zi_n  # shape: (N_atoms, 27)
+
+                # Expand each atom’s mass to 27 neighbors
+                mnw_expanded = np.tile(mnw[:, None] * 2.0, (1, 27))  # shape: (N_atoms, 27)
+
+                # Accumulate to the mass array
+                np.add.at(self.mass_array, linear_idx.ravel(), mnw_expanded.ravel())
+
+        #with open("mass_array_cuda", "w") as mass_file:
+        #    for mass in self.mass_array:
+        #        mass_file.write(str(mass)+"\n") 
+
+    def calculate_densities_cuda(self, chunk_size=1000, total_cells=6):
+        xcells, ycells, zcells = self.xcells, self.ycells, self.zcells
+        grid_shape = (xcells, ycells, zcells)
+        N = xcells * ycells * zcells
+
+        mass_grid = self.mass_array.reshape(grid_shape)
+        self.densities = cp.zeros(N, dtype=cp.float32)
+
+        # Neighbors
+        neighbor_range = cp.arange(-total_cells, total_cells + 1)
+        dx, dy, dz = cp.meshgrid(neighbor_range, neighbor_range, neighbor_range, indexing='ij')
+        neighbor_offsets = cp.stack([dx.ravel(), dy.ravel(), dz.ravel()], axis=1)
+        M = neighbor_offsets.shape[0]  # 13^3 = 2197 if total_cells=6
+
+        # Coordinates to integers
+        x = cp.arange(xcells)
+        y = cp.arange(ycells)
+        z = cp.arange(zcells)
+        ix, iy, iz = cp.meshgrid(x, y, z, indexing='ij')
+        coords_all = cp.stack([ix.ravel(), iy.ravel(), iz.ravel()], axis=1)
+
+        for start in range(0, N, chunk_size):
+            end = min(start + chunk_size, N)
+            coords = coords_all[start:end]
+
+            # Neighbor expanding masses
+            coords_exp = coords[:, None, :] + neighbor_offsets[None, :, :]
+            coords_exp %= cp.array([xcells, ycells, zcells])
+
+            xi, yi, zi = coords_exp[:, :, 0], coords_exp[:, :, 1], coords_exp[:, :, 2]
+            neighbor_masses = mass_grid[xi, yi, zi]
+
+            total_mass = cp.sum(neighbor_masses, axis=1)
+            volume = M * (self.grid_space ** 3)
+            densities = total_mass / volume * 1.66
+
+            self.densities[start:end] = densities
+
+        #with open("densities_cuda", "w") as density_file:
+        #    for idx in range(len(self.densities)):
+        #        density = self.densities[idx]
+        #        density_file.write(str(density)+"\n")
+
+
+    def calculate_densities(self, chunk_size=1000, total_cells=6):
+        xcells, ycells, zcells = self.xcells, self.ycells, self.zcells
+        grid_shape = (xcells, ycells, zcells)
+        N = xcells * ycells * zcells
+
+        mass_grid = self.mass_array.reshape(grid_shape)
+        self.densities = np.zeros(N, dtype=np.float32)
+
+        # Vecinos
+        neighbor_range = np.arange(-total_cells, total_cells + 1)
+        dx, dy, dz = np.meshgrid(neighbor_range, neighbor_range, neighbor_range, indexing='ij')
+        neighbor_offsets = np.stack([dx.ravel(), dy.ravel(), dz.ravel()], axis=1)
+        M = neighbor_offsets.shape[0]  # 13^3 = 2197 if total_cells=6
+
+        # Coordenadas de celdas en enteros
+        x = np.arange(xcells)
+        y = np.arange(ycells)
+        z = np.arange(zcells)
+        ix, iy, iz = np.meshgrid(x, y, z, indexing='ij')
+        coords_all = np.stack([ix.ravel(), iy.ravel(), iz.ravel()], axis=1)
+
+        for start in range(0, N, chunk_size):
+            end = min(start + chunk_size, N)
+            coords = coords_all[start:end]
+
+            # Expandir vecinos
+            coords_exp = coords[:, None, :] + neighbor_offsets[None, :, :]
+            coords_exp %= np.array([xcells, ycells, zcells])
+
+            xi, yi, zi = coords_exp[:, :, 0], coords_exp[:, :, 1], coords_exp[:, :, 2]
+            neighbor_masses = mass_grid[xi, yi, zi]
+
+            total_mass = np.sum(neighbor_masses, axis=1)
+            volume = M * (self.grid_space ** 3)
+            densities = total_mass / volume * 1.66
+
+            self.densities[start:end] = densities
+
+        #with open("densities_cuda", "w") as density_file:
+        #    for idx in range(len(self.densities)):
+        #        density = self.densities[idx]
+        #        density_file.write(str(density)+"\n")
 
 class bubble():
-
-    def __init__(self, total_atoms, total_residues):
+    
+    def __init__(self):
 
         self.atoms = {}
-        self.total_residues = total_residues
-        self.total_atoms = total_atoms
+        self.total_residues = 1
+        self.total_atoms = 0
         self.crds = []
 
-    def find(self, box_densities, grid_space):
+    def find(self, xcells, ycells, zcells, box_densities, grid_space):
 
-        for crds in box_densities:
-            x, y, z = crds[:]
-
-            if box_densities[crds] < 0.6:
+        for i in range(len(box_densities)):
+            #x, y, z = grid_coordinates[i][:]
+            x, y, z = index_to_coord(i, grid_space, ycells, zcells)
+            
+            if box_densities[i] < 0.6:
                 self.total_atoms += 1
+                #self.total_residues += 1
                 x += grid_space/2
                 y += grid_space/2
                 z += grid_space/2
-
-                print("You got bubbles in {:.3f} {:.3f} {:.3f}".format(x, y, z))
-
+                #outfile.write("You got bubbles in {:.3f} {:.3f} {:.3f}\n".format(x, y, z))
+                #print("You got bubbles in {:.3f} {:.3f} {:.3f}".format(x, y, z))
                 atom_pdb = "ATOM {:>6s}  BUB BUB  {:>4s}    {:>8.3f}{:>8.3f}{:>8.3f}  1.00  0.00\n".format(
                     str(self.total_atoms), str(self.total_residues), x, y, z
                 )
@@ -444,48 +713,85 @@ class bubble():
                 pdb.write("TER\n")
             pdb.write("END\n")
 
+
+def index_to_coord(index, grid_space, ycells, zcells):
+    spacing = grid_space
+    ix = index // (ycells * zcells)
+    iy = (index % (ycells * zcells)) // zcells
+    iz = index % zcells
+    return (ix * spacing, iy * spacing, iz * spacing)
+
+
+def load_npz_to_gpu(npz_file):
+    data = np.load(npz_file)
+    resnames = data['resnames']
+    masses = cp.asarray(data['masses'])
+    coords = cp.asarray(data['coords'])
+    return resnames, coords, masses
+
 def main():
 
     pdb_filename = sys.argv[1]
-
+    grid_space = 1
+    
+    start_time = time.perf_counter()
+    
     pdb = PDB(pdb_filename)
     pdb.read()
-    #pdb_lines = open(pdb_filename).readlines()
-    grid_space = 1
-
-    #box = Box()
-#
-    #box.get_attributes(pdb.box)
+    #pdb.read_box()
+    end_time = time.perf_counter()
+    print("PDB reading time: " + str(end_time - start_time) + "\n")
+    #pdb.read_pdb_parallel()
+    
 
     if pdb.box:
         print("Box information found. Coordinates will be reshaped to orthorombic.")
-        pdb.box.reshape_atoms_to_orthorombic(pdb.atoms)
-        output_name = pdb_filename.split(".")[:-1]
-        output_name = "".join(output_name) + "_wrapped.pdb"
-        pdb.write(output_name)
-        print("PDB reshaped to orthorombic and saved as", output_name)
-
-    box_grid = grid(grid_space)
-    #box_grid.get_boundaries(pdb.box.length)
-    if pdb.box:
-        box_grid.get_boundaries(pdb.atoms, pdb.box.length)
-    else:
-        box_grid.get_boundaries(pdb.atoms, np.array([0, 0, 0]))
-
-    #print(box_grid.boundaries)
-    #print(pdb.box.length)
-    #print(xmin, xmax, ymin, ymax, zmin, zmax)
-    #exit()
-
-    box_grid.initialize()
-    box_grid.apply_boundaries(pdb.atoms)
-    box_grid.fill(pdb.atoms)
+        pdb.box.reshape_atoms_to_orthorombic(pdb.coords)
+        #output_name = pdb_filename.split(".")[:-1]
+        #output_name = "".join(output_name) + "_wrapped.pdb"
+        #pdb.write(output_name)
+        #print("PDB reshaped to orthorombic and saved as", output_name)
+        print("PDB reshaped to orthorombic")
     
-    box_grid.calculate_densities()
+    box_grid = grid(grid_space)
+    #np.savez_compressed("wrapped_data",
+    #                    resnames=np.array(pdb.resnames),
+    #                    masses=np.array(pdb.masses, dtype=np.float32),
+    #                    coords=np.array(pdb.coords, dtype=np.float32))
+    print("Saved binary file: wrapped_data")
+    
 
-    bubble_atoms = bubble(box_grid.n_atoms, box_grid.n_residues)
-    bubble_atoms.find(box_grid.densities, grid_space)
+    box_grid.get_boundaries(pdb)
+    end_time = time.perf_counter()
+    print("Box wrapping time: " + str(end_time - start_time) + "\n")
+
+    #pdb.resnames, pdb.coords, pdb.masses = load_npz_to_gpu("wrapped_data.npz")
+    box_grid.initialize_cells()
+    end_time = time.perf_counter()
+    print("Grid initialized: " + str(end_time - start_time) + "\n")
+    box_grid.apply_boundaries_to_protein(pdb)
+    end_time = time.perf_counter()
+    print("Grid boundaries applied: " + str(end_time - start_time) + "\n")
+    box_grid.calculate_cell_masses(pdb)
+    end_time = time.perf_counter()
+    print("Cell masses calculated: " + str(end_time - start_time) + "\n")
+    
+    end_time = time.perf_counter()
+    print("Grid creation time: " + str(end_time - start_time) + "\n")
+    #box_grid.calculate_densities()
+    #start_time = time.time()
+    box_grid.calculate_densities()
+    #end_time = time.time()
+    end_time = time.perf_counter()
+    print("Density calculation: " + str(end_time - start_time) + "\n")
+    #with open("init_time", "w") as f:
+    #    print(end_time - start_time, file=f)
+    bubble_atoms = bubble()
+    bubble_atoms.find(box_grid.xcells, box_grid.ycells, box_grid.zcells, 
+                      box_grid.densities, grid_space)
     bubble_atoms.write_pdb()
+    end_time = time.perf_counter()
+    print("PDB bubble writing: " + str(end_time - start_time) + "\n")
 
 if __name__ == '__main__':
     main()

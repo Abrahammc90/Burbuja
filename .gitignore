@@ -1,2 +1,4 @@
 bubble_project_git.code-workspace
-tests/
+large_tests/
+deprecated/
+find_bubbles_cuda_chatgpt.py

@@ -3,151 +3,14 @@ import numpy as np
 import math
 import cupy as cp
 import time
-from concurrent.futures import ProcessPoolExecutor
 
 #import MDAnalysis as mda
-
-class Atom:
-
-    def __init__(self):
-        self.crds = []
-        self.mass = 0
-        self.resname = ""
-        self.resid = 0
-        self.id = 0
-        self.name = ""
-
-
-    def get_attributes(self, atom):
-
-        self.get_crds(atom)
-        self.get_mass(atom)
-        self.get_resname(atom)
-        self.get_resid(atom)
-        self.get_atomid(atom)
-        self.get_atomname(atom)
-
-
-    def get_resname(self, atom):
-        resname = atom[17:20]
-        self.resname = resname
-
-
-    def get_resid(self, atom):
-        resid = int(atom[23:26])
-        self.resid = resid
-
-
-    def get_atomid(self, atom):
-        atomid = int(atom[6:11])
-        self.id = atomid
-
-
-    def get_atomname(self, atom):
-        atomname = atom[12:16].strip(" ")
-        self.name = atomname
-
-
-    def get_crds(self, atom):
-        x, y, z = float(atom[30:38]), float(atom[38:46]), float(atom[46:54])
-        self.crds = [x, y, z]
-
-
-    def set_crds(self, new_crds):
-        self.crds = new_crds
-
-    def get_mass(self, atom):
-        self.name = atom[12:16].strip(" ")
-
-        if self.name[0] == "O":
-            self.mass = 16
-        elif self.name[0] == "N":
-            self.mass = 14
-        elif self.name[0] == "C":
-            try:
-                if self.name[1] == "L" or self.name[1] == "l":
-                    self.mass = 35.5
-            except IndexError:
-                pass
-            self.mass = 12
-        elif self.name[0] == "F":
-            self.mass = 19
-        elif self.name[0] == "B":
-            try:
-                if self.name[1] == "R" or self.name[1] == "r":
-                    self.mass = 79.9
-            except IndexError:
-                pass
-            self.mass = 10.8
-        elif self.name[0] == "I":
-            self.mass = 126.9
-        elif self.name[0] == "S":
-            self.mass = 32
-        elif self.name[0] == "P":
-            self.mass = 31
-        elif self.name[0:2] == "Na":
-            self.mass = 23
-        elif self.name[0] == "H" or isinstance(self.name[0], int) == True:
-            self.mass = 1
-        else:
-            #print("WARNING:", self.name+": element not identified")
-            #print("Setting mass to 0")
-            self.mass = 0
-        return
 
 class PDB():
 
     def __init__(self, filename):
         self.filename = filename
         self.box = None
-
-    def parse_lines(self, lines):
-        names, resnames, masses, coords = [], [], [], []
-
-        atomic_masses = {
-            'H': 1.0, 'C': 12.0, 'N': 14.0, 'O': 16.0,
-            'P': 31.0, 'S': 32.0, 'Cl': 35.5, 'F': 19.0,
-            'Mg': 24.3, 'Zn': 65.4, 'Cu': 63.5, 'Na': 23.0,
-            'Br': 79.9, 'I': 126.9,
-        }
-
-        for line in lines:
-            if line.startswith(("ATOM", "HETATM")):
-                name = line[12:16].strip()
-                resname = line[17:20]
-                x = float(line[30:38])
-                y = float(line[38:46])
-                z = float(line[46:54])
-
-                # Heuristic: deduce element from atom name
-                element = ''.join(filter(str.isalpha, name)).capitalize()
-                element = element if element in atomic_masses else element[0]
-                mass = atomic_masses[element]
-
-                names.append(name)
-                resnames.append(resname)
-                masses.append(mass)
-                coords.append((x, y, z))
-
-        return names, resnames, masses, coords
-
-    def read_pdb_parallel(self, lines_per_chunk=500_000):
-        with open(self.filename, 'r') as f:
-            all_lines = f.readlines()
-
-        # Remove CRYST1 and non-atom lines if needed later
-        chunks = [all_lines[i:i + lines_per_chunk] for i in range(0, len(all_lines), lines_per_chunk)]
-
-        with ProcessPoolExecutor() as executor:
-            results = list(executor.map(self.parse_lines, chunks))
-
-        # Merge lists
-        self.names     = np.array(sum((r[0] for r in results), []), dtype='U4')
-        self.resnames  = np.array(sum((r[1] for r in results), []), dtype='U4')
-        self.masses    = np.array(sum((r[2] for r in results), []), dtype=np.float32)
-        self.coords    = np.array(sum((r[3] for r in results), []), dtype=np.float32)
-
-        return #self.names, self.names, self.masses, self.coords
 
     def read(self):
         #self.names = []
@@ -374,33 +237,8 @@ class grid():
                     self.mass_array[i] = 0
                     self.mass_array_dict[(dx, dy, dz)] = 0
                     i += 1
-    
-    def initialize_cells_np(self):
-        L_x, L_y, L_z = self.boundaries
-        spacing = self.grid_space
 
-        # Compute grid dimensions
-        self.xcells = int((L_x + spacing) / spacing)
-        self.ycells = int((L_y + spacing) / spacing)
-        self.zcells = int((L_z + spacing) / spacing)
-
-        # Generate grid points using meshgrid
-        x = np.linspace(0, L_x, self.xcells)
-        y = np.linspace(0, L_y, self.ycells)
-        z = np.linspace(0, L_z, self.zcells)
-
-        xx, yy, zz = np.meshgrid(x, y, z, indexing='ij')
-        coords = np.stack([xx.ravel(), yy.ravel(), zz.ravel()], axis=1)
-
-        self.coordinates = coords
-        total_coordinates = coords.shape[0]
-
-        self.mass_array = np.zeros(total_coordinates, dtype=np.float32)
-        self.densities = np.zeros(total_coordinates, dtype=np.float32)
-
-        self.cells_i = np.indices((self.xcells, self.ycells, self.zcells)).reshape(3, -1).T
-
-    def initialize_cells_cuda_chunked(self, chunk_size=5000):
+    def initialize_cells_cuda(self):
         L_x, L_y, L_z = self.boundaries
         spacing = self.grid_space
 
@@ -410,33 +248,9 @@ class grid():
         self.zcells = int((L_z + spacing) / spacing)
         total_coordinates = self.xcells * self.ycells * self.zcells
 
-        # Initialize storage arrays
+        # Only allocate what is strictly necessary
         self.mass_array = cp.zeros(total_coordinates, dtype=cp.float32)
         self.densities = cp.zeros(total_coordinates, dtype=cp.float32)
-        self.coordinates = cp.zeros((total_coordinates, 3), dtype=cp.float32)
-
-        # Generate index arrays for batching
-        x = cp.arange(self.xcells)
-        y = cp.arange(self.ycells)
-        z = cp.arange(self.zcells)
-
-        ix, iy, iz = cp.meshgrid(x, y, z, indexing='ij')
-        flat_indices = cp.stack([ix.ravel(), iy.ravel(), iz.ravel()], axis=1)
-
-        # Process in batches
-        last_percent = -1
-        for start in range(0, total_coordinates, chunk_size):
-            end = min(start + chunk_size, total_coordinates)
-
-            # Progress tracking
-            percent = int(100 * end / total_coordinates)
-            if percent != last_percent and percent % 1 == 0:
-                print(f"Initializing... {percent}% complete")
-                last_percent = percent
-
-            batch_indices = flat_indices[start:end]
-            coords = batch_indices * spacing
-            self.coordinates[start:end] = coords
             
 
     def apply_boundaries_to_protein(self, pdb):
@@ -462,227 +276,124 @@ class grid():
                 coords[2] += L_z
 
 
-    def calculate_cell_masses_cuda_chunked(self, pdb, chunk_size=5000):
-
+    def calculate_cell_masses_cuda(self, pdb, chunk_size=5000):
         spacing = self.grid_space
         xcells, ycells, zcells = self.xcells, self.ycells, self.zcells
-        grid_shape = (xcells, ycells, zcells)
-    
-        # Crear mass_array si no existe
-        self.mass_array = cp.zeros(xcells * ycells * zcells, dtype=cp.float32)
-        mass_grid = self.mass_array.reshape(grid_shape)
-    
+        total_cells = xcells * ycells * zcells
+
+        if not hasattr(self, 'mass_array') or self.mass_array.size != total_cells:
+            self.mass_array = cp.zeros(total_cells, dtype=cp.float32)
+        else:
+            self.mass_array.fill(0)  # Reset if previously allocated
+
         num_atoms = len(pdb.coords)
         last_percent = -1
+
         for start in range(0, num_atoms, chunk_size):
             end = min(start + chunk_size, num_atoms)
 
-            # Progress tracking
+            # Print progress every 5%
             percent = int(100 * end / num_atoms)
-            if percent != last_percent and percent % 1 == 0:
+            if percent != last_percent and percent % 5 == 0:
                 print(f"Calculating cell masses... {percent}% complete")
                 last_percent = percent
 
+            # Batch data
             coords_batch = pdb.coords[start:end]
             masses_batch = pdb.masses[start:end]
             resnames_batch = pdb.resnames[start:end]
-    
-            # Transferir batch a GPU
-            coords = cp.asarray(coords_batch)
-            masses = cp.asarray(masses_batch)
-            resnames = resnames_batch  # Lista o array CPU
-    
-            # Coordenadas en malla
+
+            # Transfer to GPU
+            coords = cp.asarray(coords_batch, dtype=cp.float32)
+            masses = cp.asarray(masses_batch, dtype=cp.float32)
+
+            # Grid coordinates per atom
             grid_coords = cp.floor(coords / spacing).astype(cp.int32)
             xi, yi, zi = grid_coords[:, 0], grid_coords[:, 1], grid_coords[:, 2]
-    
-            # Máscara para agua/iones
-            water_mask = cp.asarray([r in {"HOH", "WAT", "Cl-", "Na+"} for r in resnames])
-    
-            # Parte 1: agua/iones (sin extender masa)
-            xi_w, yi_w, zi_w = xi[water_mask], yi[water_mask], zi[water_mask]
-            mw = masses[water_mask]
-            ids = (xi_w % xcells) * ycells * zcells + (yi_w % ycells) * zcells + (zi_w % zcells)
-            cp.add.at(self.mass_array, ids, mw)
-    
-            # Parte 2: otros átomos (extender masa a vecinos)
-            if cp.any(~water_mask):
-                coords_nw = grid_coords[~water_mask]
-                mnw = masses[~water_mask]
-                N = coords_nw.shape[0]
-    
-                neighbor_range = cp.arange(-1, 2)
+
+            # Create water/ion mask (still on CPU)
+            resnames_cpu = resnames_batch
+            is_water = cp.asarray([r in {"HOH", "WAT", "Cl-", "Na+"} for r in resnames_cpu], dtype=cp.bool_)
+
+            # -------------------------------
+            # Handle water/ion atoms
+            # -------------------------------
+            if cp.any(is_water):
+                xi_w = xi[is_water] % xcells
+                yi_w = yi[is_water] % ycells
+                zi_w = zi[is_water] % zcells
+                mw = masses[is_water]
+
+                ids = xi_w * ycells * zcells + yi_w * zcells + zi_w
+                cp.add.at(self.mass_array, ids, mw)
+
+            # -------------------------------
+            # Handle non-water atoms
+            # -------------------------------
+            is_nonwater = ~is_water
+            if cp.any(is_nonwater):
+                coords_nw = grid_coords[is_nonwater]
+                mnw = masses[is_nonwater]
+
+                neighbor_range = cp.arange(-1, 2, dtype=cp.int32)
                 dx, dy, dz = cp.meshgrid(neighbor_range, neighbor_range, neighbor_range, indexing='ij')
-                neighbor_offsets = cp.stack([dx.ravel(), dy.ravel(), dz.ravel()], axis=1)
-    
-                expanded_coords = coords_nw[:, None, :]
-                neighbors = expanded_coords + neighbor_offsets[None, :, :]
-                neighbors %= cp.array([xcells, ycells, zcells])
-    
+                offsets = cp.stack([dx.ravel(), dy.ravel(), dz.ravel()], axis=1)  # (27, 3)
+
+                # Neighbor cells per atom: shape (N_atoms, 27, 3)
+                neighbors = coords_nw[:, None, :] + offsets[None, :, :]
+                neighbors %= cp.array([xcells, ycells, zcells], dtype=cp.int32)
+
+                # Compute flattened 1D indices for the grid
                 xi_n = neighbors[:, :, 0]
                 yi_n = neighbors[:, :, 1]
                 zi_n = neighbors[:, :, 2]
-    
-                linear_idx = xi_n * ycells * zcells + yi_n * zcells + zi_n
-    
-                mnw_expanded = cp.broadcast_to(mnw[:, None] * 2.0, linear_idx.shape)
-    
-                flat_idx = linear_idx.ravel()
-                flat_mass = mnw_expanded.ravel()
-                cp.add.at(self.mass_array, flat_idx, flat_mass)
+                linear_idx = xi_n * ycells * zcells + yi_n * zcells + zi_n  # shape: (N_atoms, 27)
 
-    def calculate_cell_masses(self, pdb):
-        spacing = self.grid_space
+                # Expand each atom's mass to its 27 neighbors, multiplied by 2.0
+                mnw_expanded = cp.tile(mnw[:, None] * 2.0, (1, 27))  # shape: (N_atoms, 27)
+
+                # Accumulate masses in the global mass_array
+                cp.add.at(self.mass_array, linear_idx.ravel(), mnw_expanded.ravel())
+
+
+    def calculate_densities_cuda(self, chunk_size=1000, total_cells=6):
         xcells, ycells, zcells = self.xcells, self.ycells, self.zcells
         grid_shape = (xcells, ycells, zcells)
+        N = xcells * ycells * zcells
 
-        # Initialize GPU mass array
-        self.mass_array = np.zeros(xcells * ycells * zcells, dtype=np.float32)
         mass_grid = self.mass_array.reshape(grid_shape)
+        self.densities = cp.zeros(N, dtype=cp.float32)
 
-        # Transfer data to numpy
-        coords = np.asarray(pdb.coords)
-        masses = np.asarray(pdb.masses)
-        resnames = np.array(pdb.resnames)
-
-        # Convert physical coordinates to grid cell indices
-        grid_coords = np.floor(coords / spacing).astype(np.int32)
-        xi, yi, zi = grid_coords[:, 0], grid_coords[:, 1], grid_coords[:, 2]
-
-        # Identify water/ions and non-water atoms
-        water_mask = np.isin(resnames, ["HOH", "WAT", "Cl-", "Na+"])
-
-        # ---- Part 1: water/ions (no mass spreading) ----
-        xi_w, yi_w, zi_w = xi[water_mask], yi[water_mask], zi[water_mask]
-        mw = masses[water_mask]
-
-        idx_w = (xi_w % xcells) * ycells * zcells + (yi_w % ycells) * zcells + (zi_w % zcells)
-        np.add.at(self.mass_array, idx_w, mw)
-
-        # ---- Part 2: all other atoms (mass spreads to neighbors) ----
-        if np.any(~water_mask):
-            coords_nw = grid_coords[~water_mask]
-            mnw = masses[~water_mask]
-            N = coords_nw.shape[0]
-
-            neighbor_range = np.arange(-1, 2)
-            dx, dy, dz = np.meshgrid(neighbor_range, neighbor_range, neighbor_range, indexing='ij')
-            neighbor_offsets = np.stack([dx.ravel(), dy.ravel(), dz.ravel()], axis=1)  # (27, 3)
-
-            # Broadcast coordinates and neighbors to shape (N, M, 3)
-            expanded_coords = coords_nw[:, None, :]  # (N, 1, 3)
-            neighbors = expanded_coords + neighbor_offsets[None, :, :]  # (N, 27, 3)
-            neighbors %= np.array([xcells, ycells, zcells])  # condiciones periódicas
-
-            # Extract grid indices
-            xi_n = neighbors[:, :, 0]
-            yi_n = neighbors[:, :, 1]
-            zi_n = neighbors[:, :, 2]
-
-            # Compute flat indices (N, M)
-            linear_idx = xi_n * ycells * zcells + yi_n * zcells + zi_n
-
-            # Expand mass: each atom contributes mass to M neighbors
-            mnw_expanded = np.broadcast_to(mnw[:, None] * 2.0, linear_idx.shape).astype(np.float32)
-
-            #mnw_expanded = (mnw[:, None] * 2.0).astype(np.float32)
-
-            # Flatten and scatter-add to the global mass array
-            np.add.at(self.mass_array, linear_idx.ravel(), mnw_expanded.ravel())
-                        
-
-    def calculate_densities_cuda_chunked(self, batch_size=1000):
-        total_cells = 6
-        box_shape = (self.xcells, self.ycells, self.zcells)
+        # Neighbors
         neighbor_range = cp.arange(-total_cells, total_cells + 1)
-
-        #mass_array_flat = cp.array(list(self.mass_array_dict.values()), dtype=cp.float32)
-        mass_array_flat = cp.array(self.mass_array, dtype=cp.float32)
-        mass_grid = mass_array_flat.reshape(box_shape)
-
-        coords_all = cp.array(self.coordinates, dtype=cp.int32)
-        N = coords_all.shape[0]
-
         dx, dy, dz = cp.meshgrid(neighbor_range, neighbor_range, neighbor_range, indexing='ij')
         neighbor_offsets = cp.stack([dx.ravel(), dy.ravel(), dz.ravel()], axis=1)
-        M = neighbor_offsets.shape[0]
+        M = neighbor_offsets.shape[0]  # 13^3 = 2197 if total_cells=6
 
-        self.densities = {}
+        # Coordinates to integers
+        x = cp.arange(xcells)
+        y = cp.arange(ycells)
+        z = cp.arange(zcells)
+        ix, iy, iz = cp.meshgrid(x, y, z, indexing='ij')
+        coords_all = cp.stack([ix.ravel(), iy.ravel(), iz.ravel()], axis=1)
 
-        for start in range(0, N, batch_size):
-            end = min(start + batch_size, N)
+        for start in range(0, N, chunk_size):
+            end = min(start + chunk_size, N)
             coords = coords_all[start:end]
 
-            coords_expanded = coords[:, None, :]
-            neighbors = coords_expanded + neighbor_offsets[None, :, :]
-            neighbors %= cp.array(box_shape)
+            # Neighbor expanding masses
+            coords_exp = coords[:, None, :] + neighbor_offsets[None, :, :]
+            coords_exp %= cp.array([xcells, ycells, zcells])
 
-            xi, yi, zi = neighbors[:, :, 0], neighbors[:, :, 1], neighbors[:, :, 2]
-            masses = mass_grid[xi, yi, zi]
+            xi, yi, zi = coords_exp[:, :, 0], coords_exp[:, :, 1], coords_exp[:, :, 2]
+            neighbor_masses = mass_grid[xi, yi, zi]
 
-            total_mass = cp.sum(masses, axis=1)
+            total_mass = cp.sum(neighbor_masses, axis=1)
             volume = M * (self.grid_space ** 3)
-            densities_batch = total_mass / volume * 1.66
+            densities = total_mass / volume * 1.66
 
-            for local_i, global_i in enumerate(range(start, end)):
-                self.densities[int(global_i)] = float(densities_batch[local_i])
+            self.densities[start:end] = densities
 
-            #print(f"Completed {int(100 * end / N)}%")
-
-        with open("densities_cuda", "w") as density_file:
-            for idx in self.densities:
-                density = self.densities[idx]
-                density_file.write(str(density)+"\n")
-
-
-    def calculate_densities_cuda(self):
-        total_cells = 6  # number of neighbors in each direction
-        box_shape = (self.xcells, self.ycells, self.zcells)
-        neighbor_range = np.arange(-total_cells, total_cells + 1)
-
-        # Full mass array, reshaped to 3D grid
-        #mass_array_flat = np.array(list(self.mass_array_dict.values()), dtype=np.float32)
-        mass_array_flat = np.array(self.mass_array, dtype=np.float32)
-        mass_grid = mass_array_flat.reshape(box_shape)
-
-        # Coordinates of each central grid cell (N, 3)
-        coords = np.array(self.coordinates, dtype=np.int32)
-        N = coords.shape[0]
-
-        # Create neighbor deltas (flattened)
-        dx, dy, dz = np.meshgrid(neighbor_range, neighbor_range, neighbor_range, indexing='ij')
-        neighbor_offsets = np.stack([dx.ravel(), dy.ravel(), dz.ravel()], axis=1)  # (M, 3)
-        M = neighbor_offsets.shape[0]
-
-        # Expand coordinates to shape (N, M, 3)
-        coords_expanded = coords[:, None, :]  # (N, 1, 3)
-        neighbors = coords_expanded + neighbor_offsets[None, :, :]  # (N, M, 3)
-
-        # Apply periodic boundary conditions
-        neighbors %= np.array(box_shape)
-
-        # Unpack indices
-        xi = neighbors[:, :, 0]
-        yi = neighbors[:, :, 1]
-        zi = neighbors[:, :, 2]
-
-        # Gather mass values for all neighbor cells
-        masses = mass_grid[xi, yi, zi]  # (N, M)
-
-        # Sum mass and compute density
-        total_mass = np.sum(masses, axis=1)  # (N,)
-        volume = M * (self.grid_space ** 3)
-        densities = total_mass / volume * 1.66  # (N,)
-
-        # Convert to CPU and store
-        self.densities = {int(i): float(densities[i]) for i in range(N)}
-
-        # Write to file
-        #with open("densities_gpu", "w") as f:
-        #    for i in range(N):
-        #        f.write(f"{self.densities[i]}\n")
-
-        print("Completed 100%")
 
 class bubble():
     
@@ -693,10 +404,11 @@ class bubble():
         self.total_atoms = 0
         self.crds = []
 
-    def find(self, grid_coordinates, box_densities, grid_space):
+    def find(self, xcells, ycells, zcells, box_densities, grid_space):
 
         for i in range(len(box_densities)):
-            x, y, z = grid_coordinates[i][:]
+            #x, y, z = grid_coordinates[i][:]
+            x, y, z = index_to_coord(i, grid_space, ycells, zcells)
             
             if box_densities[i] < 0.6:
                 self.total_atoms += 1
@@ -717,6 +429,15 @@ class bubble():
                 pdb.write(self.atoms[key])
                 pdb.write("TER\n")
             pdb.write("END\n")
+
+
+def index_to_coord(index, grid_space, ycells, zcells):
+    spacing = grid_space
+    ix = index // (ycells * zcells)
+    iy = (index % (ycells * zcells)) // zcells
+    iz = index % zcells
+    return (ix * spacing, iy * spacing, iz * spacing)
+
 
 def load_npz_to_gpu(npz_file):
     data = np.load(npz_file)
@@ -762,13 +483,13 @@ def main():
     print("Box wrapping time: " + str(end_time - start_time) + "\n")
 
     pdb.resnames, pdb.coords, pdb.masses = load_npz_to_gpu("wrapped_data.npz")
-    box_grid.initialize_cells_cuda_chunked()
+    box_grid.initialize_cells_cuda()
     end_time = time.perf_counter()
     print("Grid initialized: " + str(end_time - start_time) + "\n")
     box_grid.apply_boundaries_to_protein(pdb)
     end_time = time.perf_counter()
     print("Grid boundaries applied: " + str(end_time - start_time) + "\n")
-    box_grid.calculate_cell_masses_cuda_chunked(pdb)
+    box_grid.calculate_cell_masses_cuda(pdb)
     end_time = time.perf_counter()
     print("Cell masses calculated: " + str(end_time - start_time) + "\n")
     
@@ -776,14 +497,15 @@ def main():
     print("Grid creation time: " + str(end_time - start_time) + "\n")
     #box_grid.calculate_densities()
     #start_time = time.time()
-    box_grid.calculate_densities_cuda_chunked()
+    box_grid.calculate_densities_cuda()
     #end_time = time.time()
     end_time = time.perf_counter()
     print("Density calculation: " + str(end_time - start_time) + "\n")
     #with open("init_time", "w") as f:
     #    print(end_time - start_time, file=f)
     bubble_atoms = bubble()
-    bubble_atoms.find(box_grid.coordinates, box_grid.densities, grid_space)
+    bubble_atoms.find(box_grid.xcells, box_grid.ycells, box_grid.zcells, 
+                      box_grid.densities, grid_space)
     bubble_atoms.write_pdb()
     end_time = time.perf_counter()
     print("PDB bubble writing: " + str(end_time - start_time) + "\n")
