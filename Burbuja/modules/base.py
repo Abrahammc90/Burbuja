@@ -12,31 +12,32 @@ MINIMUM_BUBBLE_VOLUME = 1.5  # Minimum volume for a bubble to be considered sign
 TOTAL_CELLS = 4
 
 def reshape_atoms_to_orthorombic(
-        structure: mdtraj.Trajectory
+        coordinates: np.ndarray,
+        unitcell_vectors: np.ndarray,
+        n_atoms: int,
+        frame_id: int = 0
         ) -> np.ndarray:
     """
     Wrap the system waterbox based on the orthorhombic unit cell vectors.
     This will always end up being a rectangular box with 90 degree angles,
     although, in general, the side lengths will not be equal.
     """
-    coordinates = structure.xyz
-    assert structure.unitcell_vectors is not None, \
+    assert unitcell_vectors is not None, \
         "Unit cell vectors are required within the mdtraj structure."
-    vectors = structure.unitcell_vectors
-    for i in range(structure.n_frames):
-        for j in range(structure.n_atoms):
-            lengths = np.diag(vectors[i,:,:])
-            crds = coordinates[i, j, :]
-            for _ in range(2):
-                scale3 = np.floor(crds[2]/lengths[2])
-                crds[0] -= scale3*vectors[i,2,0]
-                crds[1] -= scale3*vectors[i,2,1]
-                crds[2] -= scale3*vectors[i,2,2]
-                scale2 = np.floor(crds[1]/lengths[1])
-                crds[0] -= scale2*vectors[i,1,0]
-                crds[1] -= scale2*vectors[i,1,1]
-                scale1 = np.floor(crds[0]/lengths[0])
-                crds[0] -= scale1*vectors[i,0,0]
+    vectors = unitcell_vectors
+    for j in range(n_atoms):
+        lengths = np.diag(vectors[frame_id,:,:])
+        crds = coordinates[frame_id, j, :]
+        for _ in range(2):
+            scale3 = np.floor(crds[2]/lengths[2])
+            crds[0] -= scale3*vectors[frame_id,2,0]
+            crds[1] -= scale3*vectors[frame_id,2,1]
+            crds[2] -= scale3*vectors[frame_id,2,2]
+            scale2 = np.floor(crds[1]/lengths[1])
+            crds[0] -= scale2*vectors[frame_id,1,0]
+            crds[1] -= scale2*vectors[frame_id,1,1]
+            scale1 = np.floor(crds[0]/lengths[0])
+            crds[0] -= scale1*vectors[frame_id,0,0]
 
     return lengths
 
@@ -97,3 +98,27 @@ component "data" value 3"""
                 counter += 1
 
     ourfile.write(tailer)
+
+def get_periodic_image_offsets(
+        unitcell_vectors: np.ndarray, 
+        lengths: np.ndarray, 
+        grid_shape: np.ndarray,
+        frame_id: int = 0,
+        use_cupy: bool = False
+        ) -> np.ndarray:
+    """
+    When a neighbor of a grid cell is outside the grid, this function
+    indicates the index offsets to apply to the coordinates.
+    """
+    if use_cupy:
+        import cupy as cp
+        resolution = cp.divide(lengths, grid_shape)
+        image_offsets = cp.zeros((3, 3), dtype=cp.int32)
+    else:
+        resolution = np.divide(lengths, grid_shape)
+        image_offsets = np.zeros((3, 3), dtype=np.int32)
+    for i in range(3):
+        image_offsets[i, 0] = unitcell_vectors[frame_id, i, 0] // resolution[i]
+        image_offsets[i, 1] = unitcell_vectors[frame_id, i, 1] // resolution[i]
+        image_offsets[i, 2] = unitcell_vectors[frame_id, i, 2] // resolution[i]
+    return image_offsets
