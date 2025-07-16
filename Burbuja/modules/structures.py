@@ -167,6 +167,7 @@ class Grid():
     def calculate_densities(
             self, 
             unitcell_vectors,
+            frame_id: int = 0,
             chunk_size: int = 1000, 
             use_cupy: bool = False
             ) -> None:
@@ -188,7 +189,6 @@ class Grid():
 
         if use_cupy:
             self.densities = cp.zeros(N, dtype=cp.float32)
-
             # Neighbors
             neighbor_range = cp.arange(-n_cells_to_spread, n_cells_to_spread + 1)
             dx, dy, dz = cp.meshgrid(neighbor_range, neighbor_range, neighbor_range, indexing='ij')
@@ -229,7 +229,8 @@ class Grid():
 
             # Neighbor expanding masses
             coords_exp = coords[:, None, :] + neighbor_offsets[None, :, :]
-            image_offsets = base.get_periodic_image_offsets(unitcell_vectors, self.boundaries, np.array(grid_shape))
+            image_offsets = base.get_periodic_image_offsets(unitcell_vectors, self.boundaries, np.array(grid_shape), 
+                                                            frame_id=frame_id, use_cupy=use_cupy)
             out_of_bounds_z_lower = coords_exp[:, :, 2] < 0
             coords_exp[:, :, 0] += out_of_bounds_z_lower * image_offsets[0, 2]
             coords_exp[:, :, 1] += out_of_bounds_z_lower * image_offsets[1, 2]

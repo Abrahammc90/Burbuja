@@ -42,6 +42,7 @@ def burbuja(
             [0, b * np.sin(gamma), c * (np.cos(alpha) - np.cos(beta) * np.cos(gamma)) / np.sin(gamma)],
             [0, 0, c * np.sqrt(1 - np.cos(beta)**2 - ((np.cos(alpha) - np.cos(beta) * np.cos(gamma)) / np.sin(gamma))**2)]],
             dtype=np.float32)
+        unitcell_vectors0 = np.transpose(unitcell_vectors0, axes=(1, 0))
         unitcell_vectors = np.repeat(unitcell_vectors0[np.newaxis, :, :], n_frames, axis=0)
         if n_frames > 1:
             print("Warning: The PDB file contains multiple frames, and unit cell vectors are "
@@ -55,6 +56,7 @@ def burbuja(
         n_frames = structure.n_frames
         n_atoms = structure.n_atoms
         coordinates = structure.xyz
+        #unitcell_vectors = np.transpose(structure.unitcell_vectors, axes=(0, 2, 1))
         unitcell_vectors = structure.unitcell_vectors
         masses = []
         for atom in structure.topology.atoms:
@@ -68,7 +70,7 @@ def burbuja(
             boundaries=lengths)
         box_grid.initialize_cells(use_cupy=use_cupy)
         box_grid.calculate_cell_masses(coordinates, masses, n_atoms, frame_id, use_cupy=use_cupy)
-        box_grid.calculate_densities(unitcell_vectors, use_cupy=use_cupy)
+        box_grid.calculate_densities(unitcell_vectors, frame_id=frame_id, use_cupy=use_cupy)
         bubble = box_grid.generate_bubble_object()
         bubbles.append(bubble)
     return bubbles

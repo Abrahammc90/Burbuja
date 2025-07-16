@@ -112,13 +112,15 @@ def get_periodic_image_offsets(
     """
     if use_cupy:
         import cupy as cp
-        resolution = cp.divide(lengths, grid_shape)
+        resolution = cp.asarray(np.divide(lengths, grid_shape))
         image_offsets = cp.zeros((3, 3), dtype=cp.int32)
+        unitcell_vectors_frame = cp.asarray(unitcell_vectors[frame_id, :, :])
     else:
         resolution = np.divide(lengths, grid_shape)
         image_offsets = np.zeros((3, 3), dtype=np.int32)
+        unitcell_vectors_frame = unitcell_vectors[frame_id, :, :]
     for i in range(3):
-        image_offsets[i, 0] = unitcell_vectors[frame_id, i, 0] // resolution[i]
-        image_offsets[i, 1] = unitcell_vectors[frame_id, i, 1] // resolution[i]
-        image_offsets[i, 2] = unitcell_vectors[frame_id, i, 2] // resolution[i]
+        image_offsets[i, 0] = unitcell_vectors_frame[i, 0] // resolution[i]
+        image_offsets[i, 1] = unitcell_vectors_frame[i, 1] // resolution[i]
+        image_offsets[i, 2] = unitcell_vectors_frame[i, 2] // resolution[i]
     return image_offsets
