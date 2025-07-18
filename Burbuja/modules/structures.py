@@ -295,9 +295,9 @@ class Grid():
         header["width"] = self.xcells
         header["height"] = self.ycells
         header["depth"] = self.zcells
-        header["originx"] = 0.0
-        header["originy"] = 0.0
-        header["originz"] = 0.0
+        header["originx"] = 5.0 * self.grid_space_x
+        header["originy"] = 5.0 * self.grid_space_y
+        header["originz"] = 5.0 * self.grid_space_z
         header["resx"] = self.grid_space_x * 10.0
         header["resy"] = self.grid_space_y * 10.0
         header["resz"] = self.grid_space_z * 10.0

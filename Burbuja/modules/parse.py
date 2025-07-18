@@ -11,9 +11,9 @@ import numpy as np
 import mdtraj
 
 unusual_element_names = {
-    "POT": "K",  # Potassium
-    "SOD": "Na",  # Sodium
-    "CLA": "Cl",  # Chlorine
+    #"POT": "K",  # Potassium
+    #"SOD": "Na",  # Sodium
+    #"CLA": "Cl",  # Chlorine
 }
 
 
@@ -99,7 +99,8 @@ def get_mass_from_element_symbol(element_symbol, name_with_spaces):
         
         except KeyError:
             # OK, I give up
-            #element = None
+            element = None
+            """
             # Don't give up!!
             symbol = name_with_spaces[0:1].strip().lstrip("0123456789")
             try:
@@ -110,6 +111,7 @@ def get_mass_from_element_symbol(element_symbol, name_with_spaces):
             except KeyError:
                 # If we still can't find the element, return None
                 element = None
+            """
 
     if element is None:
         mass = 0.0
@@ -147,8 +149,7 @@ def fill_out_coordinates_and_masses(pdb_filename, coordinates, n_frames, n_atoms
                     if mass == 0.0:
                         print(f"Warning: No mass found for atom {name_with_spaces} in frame {frame_id}. "
                               "Assuming mass of 0.0.")
-                        print("element_symbol:", element_symbol, "name_with_spaces:", name_with_spaces)
-                        exit()
+                        
                     mass_list.append(mass)
                 if atom_id == n_atoms:
                     atom_id = 0
