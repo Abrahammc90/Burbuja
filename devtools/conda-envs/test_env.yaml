@@ -1,0 +1,20 @@
+name: test
+channels:
+
+  - defaults
+dependencies:
+    # Base depends
+  - python
+  - pip
+  - numpy=1.26
+  - attrs
+
+    # Testing
+  - pytest
+  - pytest-cov
+  - codecov
+
+    # Pip-only installs
+  - pip:
+    - mdtraj
+
