@@ -99,15 +99,11 @@ class Grid():
             mass_list: list,
             n_atoms: int,
             frame_id: int = 0,
-            chunk_size: int = 5000,
-            use_cupy: bool = False
+            chunk_size: int = 1000,
             ) -> None:
         """
         Calculate the mass contained within each cell of the grid.
         """
-        if use_cupy:
-            import cupy as cp
-
         xcells, ycells, zcells = self.xcells, self.ycells, self.zcells
         for start in range(0, n_atoms, chunk_size):
             end = min(start + chunk_size, n_atoms)
@@ -115,34 +111,17 @@ class Grid():
             mass_slice = mass_list[start:end]
                 
             masses_batch = np.array(mass_slice, dtype=np.float32)
-            if use_cupy:
-                # Transfer to GPU
-                coords = cp.asarray(coords_batch, dtype=cp.float32)
-                masses = cp.asarray(masses_batch, dtype=cp.float32)
-            else:
-                coords = coords_batch.astype(np.float32)
-                masses = masses_batch.astype(np.float32)
+            coords = coords_batch.astype(np.float32)
+            masses = masses_batch.astype(np.float32)
 
             # Grid coordinates per atom
-            if use_cupy:
-                grid_coords = cp.zeros((end - start, 3), dtype=cp.int32)
-                grid_coords[:, 0] = cp.floor(coords[:,0] / self.grid_space_x).astype(cp.int32)
-                grid_coords[:, 1] = cp.floor(coords[:,1] / self.grid_space_y).astype(cp.int32)
-                grid_coords[:, 2] = cp.floor(coords[:,2] / self.grid_space_z).astype(cp.int32)
-
-            else:
-                grid_coords = np.zeros((end - start, 3), dtype=np.int32)
-                grid_coords[:, 0] = np.floor(coords[:,0] / self.grid_space_x).astype(np.int32)
-                grid_coords[:, 1] = np.floor(coords[:,1] / self.grid_space_y).astype(np.int32)
-                grid_coords[:, 2] = np.floor(coords[:,2] / self.grid_space_z).astype(np.int32)
-                
+            grid_coords = np.zeros((end - start, 3), dtype=np.int32)
+            grid_coords[:, 0] = np.floor(coords[:,0] / self.grid_space_x).astype(np.int32)
+            grid_coords[:, 1] = np.floor(coords[:,1] / self.grid_space_y).astype(np.int32)
+            grid_coords[:, 2] = np.floor(coords[:,2] / self.grid_space_z).astype(np.int32)
             xi, yi, zi = grid_coords[:, 0], grid_coords[:, 1], grid_coords[:, 2]
-            
             all_indices_cpu = np.ones(end - start, dtype=bool)  # Treat all atoms the same for now
-            if use_cupy:
-                all_indices = cp.asarray(all_indices_cpu, dtype=cp.bool_)
-            else:
-                all_indices = all_indices_cpu
+            all_indices = all_indices_cpu
             if True:
                 xi_w = xi[all_indices] #% xcells
                 yi_w = yi[all_indices] #% ycells
@@ -155,12 +134,8 @@ class Grid():
                 assert (xi_w < xcells).all(), "xi_w contains indices >= xcells"
                 assert (yi_w < ycells).all(), "yi_w contains indices >= ycells"
                 assert (zi_w < zcells).all(), "zi_w contains indices >= zcells"
-            
                 ids = xi_w * ycells * zcells + yi_w * zcells + zi_w
-                if use_cupy:
-                    cp.add.at(self.mass_array, ids, mw)
-                else:
-                    np.add.at(self.mass_array, ids, mw)
+                np.add.at(self.mass_array, ids, mw)
 
         return
 
@@ -175,9 +150,6 @@ class Grid():
         Calculate the densities in each cell of the grid, optionally using CuPy.
         Note that the densities
         """
-        if use_cupy:
-            import cupy as cp
-        
         grid_space_mean = np.mean([self.grid_space_x, self.grid_space_y, self.grid_space_z])    
         n_cells_to_spread = int(base.TOTAL_CELLS * round(0.1 / grid_space_mean))
         
@@ -187,92 +159,114 @@ class Grid():
 
         mass_grid = self.mass_array.reshape(grid_shape)
 
-        if use_cupy:
-            self.densities = cp.zeros(N, dtype=cp.float32)
-            # Neighbors
-            neighbor_range = cp.arange(-n_cells_to_spread, n_cells_to_spread + 1)
-            dx, dy, dz = cp.meshgrid(neighbor_range, neighbor_range, neighbor_range, indexing='ij')
-            neighbor_offsets_box = cp.stack([dx.ravel(), dy.ravel(), dz.ravel()], axis=1)
-            neighbor_offsets_dist = cp.linalg.norm(neighbor_offsets_box, axis=1)
-            neighbor_offsets_within_dist = neighbor_offsets_dist <= n_cells_to_spread
-            neighbor_offsets = neighbor_offsets_box[neighbor_offsets_within_dist]
-            M = neighbor_offsets.shape[0]
+        self.densities = np.zeros(N)
 
-            # Coordinates to integers
-            x = cp.arange(xcells)
-            y = cp.arange(ycells)
-            z = cp.arange(zcells)
-            ix, iy, iz = cp.meshgrid(x, y, z, indexing='ij')
-            coords_all = cp.stack([ix.ravel(), iy.ravel(), iz.ravel()], axis=1)
-        else:
-            self.densities = np.zeros(N)
-
-            # Neighbors
-            neighbor_range = np.arange(-n_cells_to_spread, n_cells_to_spread + 1)
-            dx, dy, dz = np.meshgrid(neighbor_range, neighbor_range, neighbor_range, indexing='ij')
-            neighbor_offsets_box = np.stack([dx.ravel(), dy.ravel(), dz.ravel()], axis=1)
-            neighbor_offsets_dist = np.linalg.norm(neighbor_offsets_box, axis=1)
-            neighbor_offsets_within_dist = neighbor_offsets_dist <= n_cells_to_spread
-            neighbor_offsets = neighbor_offsets_box[neighbor_offsets_within_dist]
-            M = neighbor_offsets.shape[0]
-            
-            # Coordinates to integers
-            x = np.arange(xcells)
-            y = np.arange(ycells)
-            z = np.arange(zcells)
-            ix, iy, iz = np.meshgrid(x, y, z, indexing='ij')
-            coords_all = np.stack([ix.ravel(), iy.ravel(), iz.ravel()], axis=1)
-
+        # Neighbors
+        neighbor_range = np.arange(-n_cells_to_spread, n_cells_to_spread + 1)
+        dx, dy, dz = np.meshgrid(neighbor_range, neighbor_range, neighbor_range, indexing='ij')
+        neighbor_offsets_box = np.stack([dx.ravel(), dy.ravel(), dz.ravel()], axis=1)
+        neighbor_offsets_dist = np.linalg.norm(neighbor_offsets_box, axis=1)
+        neighbor_offsets_within_dist = neighbor_offsets_dist <= n_cells_to_spread
+        neighbor_offsets = neighbor_offsets_box[neighbor_offsets_within_dist]
+        M = neighbor_offsets.shape[0]
+        
+        # Get image offsets once (they don't change during iteration)
+        image_offsets = base.get_periodic_image_offsets(unitcell_vectors, self.boundaries, np.array(grid_shape), 
+                                                        frame_id=frame_id, use_cupy=use_cupy)
+        
+        # Calculate volume once (constant for all cells)
+        volume = M * 1000.0 * self.grid_space_x * self.grid_space_y * self.grid_space_z
+        
+        # Process in chunks to avoid memory issues, with adaptive sub-chunking
         for start in range(0, N, chunk_size):
             end = min(start + chunk_size, N)
-            coords = coords_all[start:end]
-
-            # Neighbor expanding masses
-            coords_exp = coords[:, None, :] + neighbor_offsets[None, :, :]
-            image_offsets = base.get_periodic_image_offsets(unitcell_vectors, self.boundaries, np.array(grid_shape), 
-                                                            frame_id=frame_id, use_cupy=use_cupy)
-            out_of_bounds_z_lower = coords_exp[:, :, 2] < 0
-            coords_exp[:, :, 0] += out_of_bounds_z_lower * image_offsets[0, 2]
-            coords_exp[:, :, 1] += out_of_bounds_z_lower * image_offsets[1, 2]
-            coords_exp[:, :, 2] += out_of_bounds_z_lower * image_offsets[2, 2]
-            out_of_bounds_z_higher = coords_exp[:, :, 2] >= zcells
-            coords_exp[:, :, 0] -= out_of_bounds_z_higher * image_offsets[0, 2]
-            coords_exp[:, :, 1] -= out_of_bounds_z_higher * image_offsets[1, 2]
-            coords_exp[:, :, 2] -= out_of_bounds_z_higher * image_offsets[2, 2]
-            out_of_bounds_y_lower = coords_exp[:, :, 1] < 0
-            coords_exp[:, :, 0] += out_of_bounds_y_lower * image_offsets[0, 1]
-            coords_exp[:, :, 1] += out_of_bounds_y_lower * image_offsets[1, 1]
-            out_of_bounds_y_higher = coords_exp[:, :, 1] >= ycells
-            coords_exp[:, :, 0] -= out_of_bounds_y_higher * image_offsets[0, 1]
-            coords_exp[:, :, 1] -= out_of_bounds_y_higher * image_offsets[1, 1]
-            out_of_bounds_x_lower = coords_exp[:, :, 0] < 0
-            coords_exp[:, :, 0] += out_of_bounds_x_lower * image_offsets[0, 0]
-            out_of_bounds_x_higher = coords_exp[:, :, 0] >= xcells
-            coords_exp[:, :, 0] -= out_of_bounds_x_higher * image_offsets[0, 0]
-            if use_cupy:
-                assert cp.greater_equal(coords_exp, 0).all()
-                assert cp.less(coords_exp[:, :, 0], xcells).all()
-                assert cp.less(coords_exp[:, :, 1], ycells).all()
-                assert cp.less(coords_exp[:, :, 2], zcells).all()
-            else:
-                assert (coords_exp[:, :, 0] >= 0).all(), "coords_exp[:, :, 0] contains negative indices"
-                assert (coords_exp[:, :, 1] >= 0).all(), "coords_exp[:, :, 1] contains negative indices"
-                assert (coords_exp[:, :, 2] >= 0).all(), "coords_exp[:, :, 2] contains negative indices"
-                assert (coords_exp[:, :, 0] < xcells).all(), "coords_exp[:, :, 0] contains indices >= xcells"
-                assert (coords_exp[:, :, 1] < ycells).all(), "coords_exp[:, :, 1] contains indices >= ycells"
-                assert (coords_exp[:, :, 2] < zcells).all(), "coords_exp[:, :, 2] contains indices >= zcells"
-
-            xi, yi, zi = coords_exp[:, :, 0], coords_exp[:, :, 1], coords_exp[:, :, 2]
-            neighbor_masses = mass_grid[xi, yi, zi]
-            if use_cupy:
-                total_mass = cp.sum(neighbor_masses, axis=1)
-            else:
-                total_mass = np.sum(neighbor_masses, axis=1)
-            volume = M * 1000.0 * self.grid_space_x * self.grid_space_y * self.grid_space_z
-            #densities = total_mass / volume * 1.66
-            # TODO: what is 1.66? Ask Abraham and turn into a descriptive constant
-            densities = total_mass / volume * 1.66
-            self.densities[start:end] = densities
+            current_chunk_size = end - start
+            
+            # For very large grids, further subdivide chunks to minimize memory usage
+            # Estimate memory usage and adjust sub-chunk size accordingly
+            estimated_memory_per_cell = M * 8 * 3  # bytes per cell (assuming float64, 3 coords)
+            max_sub_chunk_memory = 100 * 1024 * 1024  # 100MB limit per sub-chunk
+            max_sub_chunk_size = max(1, min(current_chunk_size, max_sub_chunk_memory // estimated_memory_per_cell))
+            
+            chunk_densities = np.zeros(current_chunk_size)
+            
+            for sub_start in range(0, current_chunk_size, max_sub_chunk_size):
+                sub_end = min(sub_start + max_sub_chunk_size, current_chunk_size)
+                sub_size = sub_end - sub_start
+                
+                # Generate coordinates on-the-fly for this sub-chunk only
+                global_indices = np.arange(start + sub_start, start + sub_end)
+                
+                # Convert 1D indices to 3D coordinates efficiently
+                coords = np.empty((sub_size, 3), dtype=np.int32)
+                coords[:, 0] = global_indices // (ycells * zcells)  # ix
+                temp = global_indices % (ycells * zcells)
+                coords[:, 1] = temp // zcells  # iy
+                coords[:, 2] = temp % zcells   # iz
+                
+                # Neighbor expanding masses - process in smaller batches to control memory
+                neighbor_batch_size = max(1, min(sub_size, 100))  # Process at most 100 cells at once
+                
+                for batch_start in range(0, sub_size, neighbor_batch_size):
+                    batch_end = min(batch_start + neighbor_batch_size, sub_size)
+                    batch_coords = coords[batch_start:batch_end]
+                    
+                    # Expand coordinates with neighbor offsets
+                    coords_exp = batch_coords[:, None, :] + neighbor_offsets[None, :, :]
+                    
+                    # Apply periodic boundary conditions
+                    # Handle z-direction
+                    out_of_bounds_z_lower = coords_exp[:, :, 2] < 0
+                    coords_exp[:, :, 0] += out_of_bounds_z_lower * image_offsets[0, 2]
+                    coords_exp[:, :, 1] += out_of_bounds_z_lower * image_offsets[1, 2]
+                    coords_exp[:, :, 2] += out_of_bounds_z_lower * image_offsets[2, 2]
+                    out_of_bounds_z_higher = coords_exp[:, :, 2] >= zcells
+                    coords_exp[:, :, 0] -= out_of_bounds_z_higher * image_offsets[0, 2]
+                    coords_exp[:, :, 1] -= out_of_bounds_z_higher * image_offsets[1, 2]
+                    coords_exp[:, :, 2] -= out_of_bounds_z_higher * image_offsets[2, 2]
+                    
+                    # Handle y-direction
+                    out_of_bounds_y_lower = coords_exp[:, :, 1] < 0
+                    coords_exp[:, :, 0] += out_of_bounds_y_lower * image_offsets[0, 1]
+                    coords_exp[:, :, 1] += out_of_bounds_y_lower * image_offsets[1, 1]
+                    out_of_bounds_y_higher = coords_exp[:, :, 1] >= ycells
+                    coords_exp[:, :, 0] -= out_of_bounds_y_higher * image_offsets[0, 1]
+                    coords_exp[:, :, 1] -= out_of_bounds_y_higher * image_offsets[1, 1]
+                    
+                    # Handle x-direction
+                    out_of_bounds_x_lower = coords_exp[:, :, 0] < 0
+                    coords_exp[:, :, 0] += out_of_bounds_x_lower * image_offsets[0, 0]
+                    out_of_bounds_x_higher = coords_exp[:, :, 0] >= xcells
+                    coords_exp[:, :, 0] -= out_of_bounds_x_higher * image_offsets[0, 0]
+                    
+                    # Validate coordinates
+                    assert (coords_exp[:, :, 0] >= 0).all(), "coords_exp[:, :, 0] contains negative indices"
+                    assert (coords_exp[:, :, 1] >= 0).all(), "coords_exp[:, :, 1] contains negative indices"
+                    assert (coords_exp[:, :, 2] >= 0).all(), "coords_exp[:, :, 2] contains negative indices"
+                    assert (coords_exp[:, :, 0] < xcells).all(), "coords_exp[:, :, 0] contains indices >= xcells"
+                    assert (coords_exp[:, :, 1] < ycells).all(), "coords_exp[:, :, 1] contains indices >= ycells"
+                    assert (coords_exp[:, :, 2] < zcells).all(), "coords_exp[:, :, 2] contains indices >= zcells"
+                    
+                    # Extract neighbor masses and calculate densities
+                    xi, yi, zi = coords_exp[:, :, 0], coords_exp[:, :, 1], coords_exp[:, :, 2]
+                    neighbor_masses = mass_grid[xi, yi, zi]
+                    total_mass = np.sum(neighbor_masses, axis=1)
+                    
+                    # TODO: what is 1.66? Ask Abraham and turn into a descriptive constant
+                    batch_densities = total_mass / volume * 1.66
+                    
+                    # Store results in chunk array
+                    chunk_densities[sub_start + batch_start:sub_start + batch_end] = batch_densities
+                    
+                    # Clean up intermediate arrays to free memory
+                    del coords_exp, xi, yi, zi, neighbor_masses, total_mass, batch_densities
+                
+                # Clean up sub-chunk arrays
+                del coords
+            
+            # Store chunk results in final densities array
+            self.densities[start:end] = chunk_densities
+            del chunk_densities
 
     def generate_bubble_object(self) -> "Bubble":
         """
