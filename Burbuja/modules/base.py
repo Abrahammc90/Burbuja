@@ -8,7 +8,8 @@ import numpy as np
 import mdtraj
 
 DENSITY_THRESHOLD = 0.25 #0.01  # Density threshold for bubble detection
-MINIMUM_BUBBLE_VOLUME = 1.5  # Minimum volume for a bubble to be considered significant
+#MINIMUM_BUBBLE_VOLUME = 1.5  # Minimum volume for a bubble to be considered significant
+MINIMUM_BUBBLE_FRACTION = 0.005  # Minimum fraction of the total system volume for a bubble to be considered significant
 TOTAL_CELLS = 4
 
 def reshape_atoms_to_orthorombic(
@@ -16,7 +17,6 @@ def reshape_atoms_to_orthorombic(
         unitcell_vectors: np.ndarray,
         n_atoms: int,
         frame_id: int = 0,
-        use_cupy: bool = False
         ) -> np.ndarray:
     """
     Wrap the system waterbox based on the orthorhombic unit cell vectors.

@@ -78,7 +78,7 @@ def burbuja(
         box_grid.initialize_cells(use_cupy=use_cupy)
         time4 = time.time()
         print(f"Time to initialize cells for frame {frame_id}: {time4 - time3:.2f} seconds")
-        box_grid.calculate_cell_masses(coordinates, masses, n_atoms, frame_id, use_cupy=use_cupy)
+        box_grid.calculate_cell_masses(coordinates, masses, n_atoms, frame_id)
         time5 = time.time()
         print(f"Time to calculate cell masses for frame {frame_id}: {time5 - time4:.2f} seconds")
         box_grid.calculate_densities(unitcell_vectors, frame_id=frame_id, use_cupy=use_cupy)
@@ -101,7 +101,8 @@ def has_bubble(
     found_bubble = False
     
     for i, bubble in enumerate(bubbles):
-        if bubble.total_bubble_volume > base.MINIMUM_BUBBLE_VOLUME:
+        #if bubble.total_bubble_volume > base.MINIMUM_BUBBLE_VOLUME:
+        if bubble.total_bubble_volume > base.MINIMUM_BUBBLE_FRACTION * bubble.total_system_volume:
             found_bubble = True
             if dx_filename_base is not None:
                 dx_filename = f"{dx_filename_base}_frame_{i}.dx"
