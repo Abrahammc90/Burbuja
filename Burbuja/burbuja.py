@@ -67,22 +67,27 @@ def burbuja(
             mass = atom.element.mass if atom.element else 0.0
             masses.append(mass)
 
+    time1 = time.time()
+    print("Time to load structure:", time1 - start_time)
+
     for frame_id in range(n_frames):
         lengths = base.reshape_atoms_to_orthorombic(coordinates, unitcell_vectors, n_atoms, frame_id)
+        time2 = time.time()
+        print(f"Time to reshape atoms for frame {frame_id}: {time2 - time1:.2f} seconds")
         box_grid = structures.Grid(
             approx_grid_space=grid_resolution,
             boundaries=lengths)
-        print("Initializing grid...")
-        start_time = time.time()
+        time3 = time.time()
+        print(f"Time to create grid for frame {frame_id}: {time3 - time2:.2f} seconds")
         box_grid.initialize_cells(use_cupy=use_cupy)
-        print("Grid initialized in {:.2f} seconds.".format(time.time() - start_time))
-        print("")
-
-        print("Calculating cell masses...")
-        start_time = time.time()
-        box_grid.calculate_cell_masses(coordinates, masses, n_atoms, frame_id, use_cupy=use_cupy)
-        print("Cell masses calculated in {:.2f} seconds.".format(time.time() - start_time))
+        time4 = time.time()
+        print(f"Time to initialize cells for frame {frame_id}: {time4 - time3:.2f} seconds")
+        box_grid.calculate_cell_masses(coordinates, masses, n_atoms, frame_id)
+        time5 = time.time()
+        print(f"Time to calculate cell masses for frame {frame_id}: {time5 - time4:.2f} seconds")
         box_grid.calculate_densities(unitcell_vectors, frame_id=frame_id, use_cupy=use_cupy)
+        time6 = time.time()
+        print(f"Time to calculate densities for frame {frame_id}: {time6 - time5:.2f} seconds")
         bubble = box_grid.generate_bubble_object()
         bubbles.append(bubble)
     return bubbles
@@ -100,7 +105,8 @@ def has_bubble(
     found_bubble = False
     
     for i, bubble in enumerate(bubbles):
-        if bubble.total_bubble_volume > base.MINIMUM_BUBBLE_VOLUME:
+        #if bubble.total_bubble_volume > base.MINIMUM_BUBBLE_VOLUME:
+        if bubble.total_bubble_volume > base.MINIMUM_BUBBLE_FRACTION * bubble.total_system_volume:
             found_bubble = True
             if dx_filename_base is not None:
                 dx_filename = f"{dx_filename_base}_frame_{i}.dx"
