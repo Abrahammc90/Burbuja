@@ -8,7 +8,6 @@ import typing
 
 from attrs import define, field
 import numpy as np
-import mdtraj
 
 from Burbuja.modules import base
 
@@ -59,43 +58,14 @@ class Grid():
         self.total_system_volume = L_x * L_y * L_z
         if use_cupy:
             import cupy as cp
-            self.mass_array = cp.zeros(total_coordinates, dtype=cp.float32)
-            self.densities = cp.zeros(total_coordinates, dtype=cp.float32)
+            dtype = cp.float32 if use_float32 else cp.float64
+            self.mass_array = cp.zeros(total_coordinates, dtype=dtype)
+            self.densities = cp.zeros(total_coordinates, dtype=dtype)
         else:
             # Use float32 for CPU if requested (for precision comparison testing)
             dtype = np.float32 if use_float32 else np.float64
             self.mass_array = np.zeros(total_coordinates, dtype=dtype)
             self.densities = np.zeros(total_coordinates, dtype=dtype)
-        return
-
-    def apply_boundaries_to_protein(
-            self, 
-            structure: mdtraj.Trajectory,
-            ) -> None:
-
-        """
-        Wrap all atoms within the boundaries of the box.
-        """
-        # TODO: don't use this! It's wrong - use instead a procedure like
-        #  base.reshape_atoms_to_orthorombic() or see if this method can be
-        #  left out entirely.
-        L_x, L_y, L_z = self.boundaries[:]
-        for i in range(structure.n_frames):
-            for j in range(structure.n_atoms):
-                while structure.xyz[i,j,0] > L_x:
-                    structure.xyz[i,j,0] -= L_x
-                while structure.xyz[i,j,0] < 0:
-                    structure.xyz[i,j,0] += L_x
-
-                while structure.xyz[i,j,1] > L_y:
-                    structure.xyz[i,j,1] -= L_y
-                while structure.xyz[i,j,1] < 0:
-                    structure.xyz[i,j,1] += L_y
-
-                while structure.xyz[i,j,2] > L_z:
-                    structure.xyz[i,j,2] -= L_z
-                while structure.xyz[i,j,2] < 0:
-                    structure.xyz[i,j,2] += L_z
         return
 
     def calculate_cell_masses(
@@ -123,8 +93,9 @@ class Grid():
             masses_batch = np.array(mass_slice, dtype=np.float32)
             if use_cupy:
                 # Transfer to GPU
-                coords = cp.asarray(coords_batch, dtype=cp.float32)
-                masses = cp.asarray(masses_batch, dtype=cp.float32)
+                dtype = cp.float32 if use_float32 else cp.float64
+                coords = cp.asarray(coords_batch, dtype=dtype)
+                masses = cp.asarray(masses_batch, dtype=dtype)
             else:
                 # Use float32 for CPU if requested
                 dtype = np.float32 if use_float32 else np.float64
@@ -198,11 +169,9 @@ class Grid():
         
         # Transfer mass array to GPU if using CuPy
         if use_cupy:
-            if isinstance(self.mass_array, np.ndarray):
-                mass_array = cp.asarray(self.mass_array, dtype=cp.float32)
-            else:
-                mass_array = self.mass_array.astype(cp.float32)
-            self.densities = cp.zeros(N, dtype=cp.float32)
+            dtype = cp.float32 if use_float32 else cp.float64
+            mass_array = self.mass_array.astype(dtype)
+            self.densities = cp.zeros(N, dtype=dtype)
             grid_shape_array = cp.asarray(grid_shape, dtype=cp.int32)
         else:
             mass_array = self.mass_array
@@ -231,7 +200,6 @@ class Grid():
         else:
             image_offsets = base.get_periodic_image_offsets(unitcell_vectors, self.boundaries, grid_shape_array,
                                                             frame_id=frame_id, use_cupy=use_cupy)
-        
         # Calculate volume once
         volume = M * 1000.0 * self.grid_space_x * self.grid_space_y * self.grid_space_z
         
@@ -320,7 +288,11 @@ class Grid():
             if use_cupy:
                 cp.get_default_memory_pool().free_all_blocks()
 
-    def generate_bubble_object(self, use_cupy: bool = False, use_float32: bool = False) -> "Bubble":
+    def generate_bubble_object(
+            self, 
+            use_cupy: bool = False, 
+            use_float32: bool = False
+            ) -> "Bubble":
         """
         Generate a bubble object from the grid densities data.
         Also, prepare a DX file header in case it will be written later.
@@ -380,8 +352,17 @@ class Bubble():
     bubble_data: np.ndarray | None = None
     dx_header: str = field(default="")
 
-    def find(self, xcells, ycells, zcells, box_densities, grid_space_x,
-             grid_space_y, grid_space_z, use_cupy: bool = False, use_float32: bool = False):
+    def find(self, 
+             xcells: int, 
+             ycells: int, 
+             zcells: int, 
+             box_densities: np.ndarray, 
+             grid_space_x: float,
+             grid_space_y: float, 
+             grid_space_z: float, 
+             use_cupy: bool = False, 
+             use_float32: bool = False
+             ) -> None:
         """
         Find bubble regions where density is below threshold.
         Optimized for both CPU and GPU processing.
@@ -475,15 +456,24 @@ class Bubble():
             self.densities = cp.asnumpy(self.densities)
             self.bubble_data = cp.asnumpy(self.bubble_data)
 
-    def write_pdb(self, filename):
+    def write_pdb(
+            self, 
+            filename: str
+        ) -> None:
         with open(filename, "w") as pdb:
             for key in self.atoms:
                 pdb.write(self.atoms[key])
                 pdb.write("TER\n")
             pdb.write("END\n")
 
-    def write_densities_dx(self, filename):
+    def write_densities_dx(
+            self, 
+            filename: str
+        ) -> None:
         base.write_data_array(self.dx_header, self.densities, filename)
 
-    def write_bubble_dx(self, filename):
+    def write_bubble_dx(
+            self, 
+            filename: str
+        ) -> None:
         base.write_data_array(self.dx_header, self.bubble_data, filename)

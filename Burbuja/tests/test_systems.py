@@ -171,7 +171,9 @@ def test_tb_traj_cupy():
     dcd_filename = os.path.join(DATA_DIRECTORY, "tb_traj.dcd")
     prmtop_filename = os.path.join(DATA_DIRECTORY, "tryp_ben.prmtop")
     mdtraj_structure = mdtraj.load(dcd_filename, top=prmtop_filename)
+    print("CPU")
     result_numpy= burbuja.burbuja(mdtraj_structure)
+    print("GPU")
     result_cupy = burbuja.burbuja(mdtraj_structure, use_cupy=True)
     
     # Track frames with bubbles for each implementation
@@ -199,7 +201,7 @@ def test_tb_traj_cupy():
         else:
             # Both non-zero - use generous tolerance due to cumulative float32 vs float64 differences
             rel_diff = abs(vol_numpy - vol_cupy) / max(vol_numpy, vol_cupy)
-            assert rel_diff < 0.15, f"Frame {i}: Bubble volumes differ too much. NumPy: {vol_numpy:.6f}, CuPy: {vol_cupy:.6f}, rel_diff: {rel_diff:.6f}"
+            assert rel_diff < 0.1, f"Frame {i}: Bubble volumes differ too much. NumPy: {vol_numpy:.6f}, CuPy: {vol_cupy:.6f}, rel_diff: {rel_diff:.6f}"
         
         assert bubble_numpy.densities.shape == bubble_cupy.densities.shape, \
             f"Frame {i}: Bubble densities should have the same shape between numpy and cupy implementations."

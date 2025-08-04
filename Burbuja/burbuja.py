@@ -23,25 +23,27 @@ BIG_FILE_CHUNK_SIZE = 100000  # Number of atoms to process in each chunk for big
 def burbuja(
         structure: str | mdtraj.Trajectory,
         grid_resolution: float = 0.1,
-        use_cupy: bool = False
+        use_cupy: bool = False,
+        use_float32=False
         ) -> typing.List[structures.Bubble]:
     """
     Perform bubble detection and analysis on the structure.
     """
 
-    # TODO: make structure able to take a list or a structure object from mdtraj
-    #  the list being for either multiple frames or pieces of a very large structure.
-    start_time = time.time()
     bubbles = []
+    if use_float32:
+        mydtype = np.float32
+    else:
+        mydtype = np.float64
     if isinstance(structure, str):
         a, b, c, alpha, beta, gamma = parse.get_box_information_from_pdb_file(structure)
         n_frames, n_atoms = parse.get_num_frames_and_atoms_from_pdb_file(structure)
-        coordinates = np.zeros((n_frames, n_atoms, 3), dtype=np.float32)
+        coordinates = np.zeros((n_frames, n_atoms, 3), dtype=mydtype)
         unitcell_vectors0 = np.array([
             [a, b * np.cos(gamma), c * np.cos(beta)],
             [0, b * np.sin(gamma), c * (np.cos(alpha) - np.cos(beta) * np.cos(gamma)) / np.sin(gamma)],
             [0, 0, c * np.sqrt(1 - np.cos(beta)**2 - ((np.cos(alpha) - np.cos(beta) * np.cos(gamma)) / np.sin(gamma))**2)]],
-            dtype=np.float32)
+            dtype=mydtype)
         unitcell_vectors0 = np.transpose(unitcell_vectors0, axes=(1, 0))
         unitcell_vectors = np.repeat(unitcell_vectors0[np.newaxis, :, :], n_frames, axis=0)
         if n_frames > 1:
@@ -56,35 +58,21 @@ def burbuja(
         n_frames = structure.n_frames
         n_atoms = structure.n_atoms
         coordinates = structure.xyz
-        #unitcell_vectors = np.transpose(structure.unitcell_vectors, axes=(0, 2, 1))
         unitcell_vectors = structure.unitcell_vectors
         masses = []
         for atom in structure.topology.atoms:
             mass = atom.element.mass if atom.element else 0.0
             masses.append(mass)
 
-    time1 = time.time()
-    print("Time to load structure:", time1 - start_time)
-
     for frame_id in range(n_frames):
-        lengths = base.reshape_atoms_to_orthorombic(coordinates, unitcell_vectors, n_atoms, frame_id)
-        time2 = time.time()
-        print(f"Time to reshape atoms for frame {frame_id}: {time2 - time1:.2f} seconds")
+        lengths = base.reshape_atoms_to_orthorombic(coordinates, unitcell_vectors, frame_id)
         box_grid = structures.Grid(
             approx_grid_space=grid_resolution,
             boundaries=lengths)
-        time3 = time.time()
-        print(f"Time to create grid for frame {frame_id}: {time3 - time2:.2f} seconds")
-        box_grid.initialize_cells(use_cupy=use_cupy)
-        time4 = time.time()
-        print(f"Time to initialize cells for frame {frame_id}: {time4 - time3:.2f} seconds")
-        box_grid.calculate_cell_masses(coordinates, masses, n_atoms, frame_id)
-        time5 = time.time()
-        print(f"Time to calculate cell masses for frame {frame_id}: {time5 - time4:.2f} seconds")
+        box_grid.initialize_cells(use_cupy=use_cupy, use_float32=use_float32)
+        box_grid.calculate_cell_masses(coordinates, masses, n_atoms, frame_id, use_cupy=use_cupy)
         box_grid.calculate_densities(unitcell_vectors, frame_id=frame_id, use_cupy=use_cupy)
-        time6 = time.time()
-        print(f"Time to calculate densities for frame {frame_id}: {time6 - time5:.2f} seconds")
-        bubble = box_grid.generate_bubble_object()
+        bubble = box_grid.generate_bubble_object(use_cupy=use_cupy)
         bubbles.append(bubble)
     return bubbles
 
@@ -107,8 +95,6 @@ def has_bubble(
             if dx_filename_base is not None:
                 dx_filename = f"{dx_filename_base}_frame_{i}.dx"
                 bubble.write_bubble_dx(dx_filename)
-                #dens_filename = f"{dx_filename_base}_density_frame_{i}.dx"
-                #bubble.write_densities_dx(dens_filename)
                 print(f"Bubble detected with volume: {bubble.total_bubble_volume} nm^3. Frame: {i}. "
                     f"Bubble volume map file: {dx_filename}")
             else:

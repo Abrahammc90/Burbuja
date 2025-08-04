@@ -15,7 +15,6 @@ TOTAL_CELLS = 4
 def reshape_atoms_to_orthorombic(
         coordinates: np.ndarray,
         unitcell_vectors: np.ndarray,
-        n_atoms: int,
         frame_id: int = 0,
         ) -> np.ndarray:
     """
@@ -110,20 +109,36 @@ def get_periodic_image_offsets(
     """
     When a neighbor of a grid cell is outside the grid, this function
     indicates the index offsets to apply to the coordinates.
+    
+    Note: To ensure consistency between CPU and GPU calculations, we always
+    compute on CPU first, then transfer to GPU if needed. This avoids 
+    floating-point precision differences in floor division between NumPy and CuPy.
     """
+    # Always compute on CPU first for consistency
+    resolution = np.divide(lengths, grid_shape)
+    image_offsets_cpu = np.zeros((3, 3), dtype=np.int32)
+    unitcell_vectors_frame = unitcell_vectors[frame_id, :, :]
+
+    # Do these computations on CPU to avoid precision issues
     if use_cupy:
         import cupy as cp
-        resolution = cp.asarray(np.divide(lengths, grid_shape))
-        image_offsets = cp.zeros((3, 3), dtype=cp.int32)
-        unitcell_vectors_frame = cp.asarray(unitcell_vectors[frame_id, :, :])
+        unitcell_vectors_frame_cpu = cp.asnumpy(unitcell_vectors_frame)
+        resolution_cpu = cp.asnumpy(resolution)
     else:
-        resolution = np.divide(lengths, grid_shape)
-        image_offsets = np.zeros((3, 3), dtype=np.int32)
-        unitcell_vectors_frame = unitcell_vectors[frame_id, :, :]
+        unitcell_vectors_frame_cpu = unitcell_vectors_frame
+        resolution_cpu = resolution
+        
     for i in range(3):
-        image_offsets[i, 0] = unitcell_vectors_frame[i, 0] // resolution[i]
-        image_offsets[i, 1] = unitcell_vectors_frame[i, 1] // resolution[i]
-        image_offsets[i, 2] = unitcell_vectors_frame[i, 2] // resolution[i]
+        image_offsets_cpu[i, 0] = unitcell_vectors_frame_cpu[i, 0] // resolution_cpu[i]
+        image_offsets_cpu[i, 1] = unitcell_vectors_frame_cpu[i, 1] // resolution_cpu[i]
+        image_offsets_cpu[i, 2] = unitcell_vectors_frame_cpu[i, 2] // resolution_cpu[i]
+
+    # Transfer to GPU if needed
+    if use_cupy:
+        image_offsets = cp.asarray(image_offsets_cpu)
+    else:
+        image_offsets = image_offsets_cpu
+    
     del resolution
     del unitcell_vectors_frame
     return image_offsets

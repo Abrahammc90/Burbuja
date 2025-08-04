@@ -73,6 +73,7 @@ def get_num_frames_and_atoms_from_pdb_file(pdb_filename):
         return frame_count, atom_count
 
 def get_mass_from_element_symbol(element_symbol, name_with_spaces):
+    # Much of this code is borrowed from mdtraj.core.element.get_by_symbol
     try:
         # First try to find a sensible element symbol from columns 76-77
         element = mdtraj.core.element.get_by_symbol(element_symbol)
