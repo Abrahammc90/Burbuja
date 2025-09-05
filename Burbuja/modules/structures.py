@@ -299,6 +299,7 @@ class Grid():
         Also, prepare a DX file header in case it will be written later.
         """
         bubble_atoms = Bubble()
+        bubble_atoms.density_threshold = self.density_threshold
         bubble_atoms.find(self.xcells, self.ycells, self.zcells, 
                           self.densities, grid_space_x=self.grid_space_x,
                           grid_space_y=self.grid_space_y,
@@ -352,6 +353,7 @@ class Bubble():
     densities: np.ndarray | None = None
     bubble_data: np.ndarray | None = None
     dx_header: str = field(default="")
+    density_threshold: float = field(default=base.DEFAULT_DENSITY_THRESHOLD)
 
     def find(self, 
              xcells: int, 

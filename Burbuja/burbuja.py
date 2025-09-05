@@ -104,7 +104,7 @@ def has_bubble(
             if dx_filename_base is not None:
                 dx_filename = f"{dx_filename_base}_frame_{i}.dx"
                 bubble.write_bubble_dx(dx_filename)
-                print(f"Bubble detected with volume: {bubble.total_bubble_volume} nm^3. Frame: {i}. "
+                print(f"Bubble detected with volume: {bubble.total_bubble_volume:.3f} nm^3. Frame: {i}. "
                     f"Bubble volume map file: {dx_filename}")
             else:
                 break
