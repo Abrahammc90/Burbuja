@@ -38,7 +38,7 @@ How to Contribute
 7. Participate in code review and address any feedback.
 
 Code Style and Best Practices
-----------------------------
+-----------------------------
 
 - Follow PEP8 for Python code style.
 - Use clear, descriptive variable and function names.
@@ -65,7 +65,7 @@ Reporting Issues and Requesting Features
 - Please provide as much detail as possible, including steps to reproduce bugs, error messages, and your environment (OS, Python version, etc).
 
 Discussions and Community
-------------------------
+-------------------------
 
 - Use the [GitHub Discussions page](https://github.com/Abrahammc90/Burbuja/discussions) for general questions, ideas, and community support.
 - You can also reach out via issues or pull requests for technical questions.

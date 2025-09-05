@@ -1,4 +1,4 @@
-name: docs_seekrflow
+name: docs_burbuja
 channels:
   - conda-forge
   - defaults
