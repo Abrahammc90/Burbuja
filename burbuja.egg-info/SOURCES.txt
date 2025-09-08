@@ -4,8 +4,6 @@ pyproject.toml
 setup.cfg
 Burbuja/__init__.py
 Burbuja/burbuja.py
-Burbuja/find_bubbles.py
-Burbuja/find_bubbles_cuda.py
 Burbuja/modules/__init__.py
 Burbuja/modules/base.py
 Burbuja/modules/parse.py

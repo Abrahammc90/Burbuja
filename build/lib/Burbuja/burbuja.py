@@ -53,7 +53,10 @@ def burbuja(
                   "the generation of this trajectory, you must load a different trajectory file "
                   "format, such as a DCD file, and provide the topology file to Burbuja in order "
                   "for the correct unit cell vectors to be used for each frame.")
-        masses = parse.fill_out_coordinates_and_masses(structure, coordinates, masses, n_frames, n_atoms)
+        print("Filling out coordinates and masses from PDB structure...")
+        start_time = time.time()
+        parse.fill_out_coordinates_and_masses(structure, coordinates, masses, n_frames, n_atoms)
+        print("Coordinates and masses filled in {:.2f} seconds.".format(time.time() - start_time))
         
     else:
         n_frames = structure.n_frames
@@ -72,6 +75,7 @@ def burbuja(
             boundaries=lengths)
         box_grid.initialize_cells(use_cupy=use_cupy, use_float32=use_float32)
         box_grid.calculate_cell_masses(coordinates, masses, n_atoms, frame_id, use_cupy=use_cupy)
+        print("Cell masses calculated in {:.2f} seconds.".format(time.time() - start_time))
         box_grid.calculate_densities(unitcell_vectors, frame_id=frame_id, use_cupy=use_cupy)
         bubble = box_grid.generate_bubble_object(use_cupy=use_cupy)
         bubbles.append(bubble)
