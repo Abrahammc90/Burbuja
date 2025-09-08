@@ -5,12 +5,13 @@ Base functions and constants for Burbuja.
 """
 
 import numpy as np
-import mdtraj
 
-DENSITY_THRESHOLD = 0.25 #0.01  # Density threshold for bubble detection
-#MINIMUM_BUBBLE_VOLUME = 1.5  # Minimum volume for a bubble to be considered significant
-MINIMUM_BUBBLE_FRACTION = 0.005  # Minimum fraction of the total system volume for a bubble to be considered significant
-TOTAL_CELLS = 4
+# Density threshold for bubble detection
+DEFAULT_DENSITY_THRESHOLD = 0.25 
+# Minimum fraction of the total system volume for a bubble to be considered significant
+DEFAULT_MINIMUM_BUBBLE_FRACTION = 0.005  
+# Radial number of neighbor cells to include in density averaging
+DEFAULT_NEIGHBOR_CELLS = 4
 
 def reshape_atoms_to_orthorombic(
         coordinates: np.ndarray,
@@ -18,9 +19,19 @@ def reshape_atoms_to_orthorombic(
         frame_id: int = 0,
         ) -> np.ndarray:
     """
-    Wrap the system waterbox based on the orthorhombic unit cell vectors.
-    This will always end up being a rectangular box with 90 degree angles,
-    although, in general, the side lengths will not be equal.
+    Wrap the system coordinates based on orthorhombic unit cell vectors.
+
+    This function wraps all atoms in the given frame into a rectangular
+    box with 90 degree angles, using the provided unit cell vectors.
+    The side lengths may differ, but the box will always be orthorhombic.
+
+    Args:
+        coordinates (np.ndarray): Atomic coordinates, shape (n_frames, n_atoms, 3).
+        unitcell_vectors (np.ndarray): Unit cell vectors, shape (n_frames, 3, 3).
+        frame_id (int, optional): Frame index to use. Default is 0.
+
+    Returns:
+        np.ndarray: Side lengths of the orthorhombic box for the frame.
     """
     assert unitcell_vectors is not None, \
         "Unit cell vectors are required within the mdtraj structure."
@@ -43,7 +54,15 @@ def reshape_atoms_to_orthorombic(
 
 def index_to_index3d(index, ycells, zcells):
     """
-    Convert a 1D index to a 3D index (ix, iy, iz) for a grid with ycells and zcells.
+    Convert a 1D index to a 3D index (ix, iy, iz) for a grid.
+
+    Args:
+        index (int): 1D index.
+        ycells (int): Number of grid cells in y direction.
+        zcells (int): Number of grid cells in z direction.
+
+    Returns:
+        tuple: (ix, iy, iz) 3D indices for the grid.
     """
     ix = index // (ycells * zcells)
     iy = (index % (ycells * zcells)) // zcells
@@ -52,7 +71,15 @@ def index_to_index3d(index, ycells, zcells):
 
 def write_data_array(header, data, filename):
     """
-    Write a data array to a file in the DX format.
+    Write a 3D data array to a file in the OpenDX format.
+
+    Args:
+        header (dict): DX file header information (width, height, depth, etc).
+        data (np.ndarray): 3D data array to write.
+        filename (str): Output filename.
+
+    Returns:
+        None
     """
     ourfile = open(filename, 'w')
     width = header['width']
@@ -76,7 +103,8 @@ delta 0.000000e+00 %8.6e 0.000000e+00
 delta 0.000000e+00 0.000000e+00 %8.6e
 object 2 class gridconnections counts %d %d %d
 object 3 class array type double rank 0 items %d data follows
-""" % (width, height, depth, originx, originy, originz, resx, resy, resz, width, height, depth, total_points)
+""" % (width, height, depth, originx, originy, originz, resx, resy, resz, width, 
+       height, depth, total_points)
 
     tailer = """
 attribute "dep" string "positions"
@@ -100,19 +128,30 @@ component "data" value 3"""
     ourfile.write(tailer)
 
 def get_periodic_image_offsets(
-        unitcell_vectors: np.ndarray, 
-        lengths: np.ndarray, 
+        unitcell_vectors: np.ndarray,
+        lengths: np.ndarray,
         grid_shape: np.ndarray,
         frame_id: int = 0,
         use_cupy: bool = False
         ) -> np.ndarray:
     """
+    Compute periodic image offsets for grid boundary crossing.
+
     When a neighbor of a grid cell is outside the grid, this function
-    indicates the index offsets to apply to the coordinates.
-    
-    Note: To ensure consistency between CPU and GPU calculations, we always
-    compute on CPU first, then transfer to GPU if needed. This avoids 
-    floating-point precision differences in floor division between NumPy and CuPy.
+    returns the index offsets to apply to the coordinates to wrap them
+    back into the periodic box. To ensure consistency between CPU and
+    GPU, the calculation is always performed on the CPU and transferred
+    to the GPU if needed.
+
+    Args:
+        unitcell_vectors (np.ndarray): Unit cell vectors, shape (n_frames, 3, 3).
+        lengths (np.ndarray): Box side lengths for the frame.
+        grid_shape (np.ndarray): Number of grid cells in each direction (x, y, z).
+        frame_id (int, optional): Frame index to use. Default is 0.
+        use_cupy (bool, optional): If True, return a CuPy array. Default is False.
+
+    Returns:
+        np.ndarray or cupy.ndarray: Image offsets for periodic wrapping, shape (3, 3).
     """
     # Always compute on CPU first for consistency
     resolution = np.divide(lengths, grid_shape)

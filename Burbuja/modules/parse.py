@@ -16,16 +16,16 @@ unusual_element_names = {
     "CLA": "Cl",  # Chlorine
 }
 
-
 def get_box_information_from_pdb_file(pdb_filename):
     """
-    Extract box information from a PDB file.
-    
-    Parameters:
-    pdb_filename (str): Path to the PDB file.
-    
+    Extract box dimensions and angles from a PDB file.
+
+    Args:
+        pdb_filename (str): Path to the PDB file.
+
     Returns:
-    tuple: A tuple containing the box dimensions (x, y, z).
+        tuple: (a, b, c, alpha, beta, gamma) where a, b, c are box
+            lengths in nm, and alpha, beta, gamma are angles in radians.
     """
     with open(pdb_filename, 'r') as file:
         for line in file:
@@ -51,13 +51,13 @@ def get_box_information_from_pdb_file(pdb_filename):
                 
 def get_num_frames_and_atoms_from_pdb_file(pdb_filename):
     """
-    Count the number of frames in a PDB file.
-    
-    Parameters:
-    pdb_filename (str): Path to the PDB file.
-    
+    Count the number of frames and atoms in a PDB file.
+
+    Args:
+        pdb_filename (str): Path to the PDB file.
+
     Returns:
-    int: The number of frames in the PDB file.
+        tuple: (frame_count, atom_count)
     """
     with open(pdb_filename, 'r') as file:
         frame_count = 0
@@ -73,6 +73,19 @@ def get_num_frames_and_atoms_from_pdb_file(pdb_filename):
         return frame_count, atom_count
 
 def get_mass_from_element_symbol(element_symbol, name_with_spaces):
+    """
+    Get the atomic mass for a given element symbol or atom name.
+
+    Tries to resolve the element using MDTraj, falling back to heuristics
+    for unusual or nonstandard atom names.
+
+    Args:
+        element_symbol (str): Element symbol from the PDB file.
+        name_with_spaces (str): Atom name field from the PDB file.
+
+    Returns:
+        float: Atomic mass, or 0.0 if not found.
+    """
     # Much of this code is borrowed from mdtraj.core.element.get_by_symbol
     try:
         # First try to find a sensible element symbol from columns 76-77
@@ -120,16 +133,16 @@ def get_mass_from_element_symbol(element_symbol, name_with_spaces):
 
 def fill_out_coordinates_and_masses(pdb_filename, coordinates, mass_list, n_frames, n_atoms):
     """
-    Fill out the coordinates array with data from a PDB file.
-    
-    Parameters:
-    pdb_filename (str): Path to the PDB file.
-    coordinates (np.ndarray): Array to fill with coordinates.
-    n_frames (int): Number of frames in the PDB file.
-    n_atoms (int): Number of atoms in the PDB file.
-    
+    Fill out the coordinates array and return atomic masses from a PDB file.
+
+    Args:
+        pdb_filename (str): Path to the PDB file.
+        coordinates (np.ndarray): Array to fill with coordinates, shape (n_frames, n_atoms, 3).
+        n_frames (int): Number of frames in the PDB file.
+        n_atoms (int): Number of atoms in the PDB file.
+
     Returns:
-    np.ndarray: Filled coordinates array.
+        list: List of atomic masses for all atoms in the file.
     """
     with open(pdb_filename, 'r') as file:
 

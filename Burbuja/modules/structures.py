@@ -1,7 +1,7 @@
 """
 structures.py
 
-Data structure for Burbuja.
+Data structures for Burbuja.
 """
 
 import typing
@@ -14,14 +14,17 @@ from Burbuja.modules import base
 @define
 class Grid():
     """
-    A grid in in the shape of the wrapped water box (rectangular prism), that is
-    constructed to represent the mass and density of the system at various
-    points in space (a finitized version of scalar fields). The densities
-    can then be used to find bubbles in the system when the density is below
-    a certain threshold.
+    Represents a 3D grid for mass and density calculations in a water box.
+
+    The grid is constructed to represent the mass and density of the system
+    at various points in space (a finitized version of scalar fields).
+    Densities can then be used to find bubbles in the system when the
+    density is below a certain threshold.
     """
     approx_grid_space: float = field(default=0.1)
     boundaries: np.ndarray = field(factory=lambda: np.zeros(3))
+    density_threshold: float = field(default=base.DEFAULT_DENSITY_THRESHOLD)
+    neighbor_cells: int = field(default=base.DEFAULT_NEIGHBOR_CELLS)
     grid_space_x: float = field(default=0.1)
     grid_space_y: float = field(default=0.1)
     grid_space_z: float = field(default=0.1)
@@ -33,17 +36,23 @@ class Grid():
     total_system_volume: float = field(default=0.0)
     
     def initialize_cells(
-            self, 
-            use_cupy=False,
-            use_float32=False
+            self,
+            use_cupy: bool = False,
+            use_float32: bool = False
             ) -> None:
         """
-        Assign the number of cells in each direction based on the
-        boundaries of the box and the approximate grid space.
-        The grid space is then calculated based on the number of cells
-        and the boundaries of the box.
-        The mass_array and densities are initialized to zero - and are
-        1D arrays (flattened 3D values).
+        Initialize the grid cell arrays for mass and density.
+
+        Assigns the number of cells in each direction based on the box
+        boundaries and the approximate grid spacing. Initializes the
+        mass_array and densities arrays to zero.
+
+        Args:
+            use_cupy (bool, optional): Use CuPy arrays for GPU. Default is False.
+            use_float32 (bool, optional): Use float32 precision. Default is False.
+
+        Returns:
+            None
         """
         L_x, L_y, L_z = self.boundaries[:]
         self.xcells = int((L_x + self.approx_grid_space) / self.approx_grid_space)
@@ -63,7 +72,7 @@ class Grid():
         return
 
     def calculate_cell_masses(
-            self, 
+            self,
             coordinates: np.ndarray,
             mass_list: list,
             n_atoms: int,
@@ -74,6 +83,21 @@ class Grid():
             ) -> None:
         """
         Calculate the mass contained within each cell of the grid.
+
+        Loops over all atoms and assigns their mass to the appropriate
+        grid cell, using either CPU or GPU arrays.
+
+        Args:
+            coordinates (np.ndarray): Atomic coordinates, shape (n_frames, n_atoms, 3).
+            mass_list (list): List of atomic masses.
+            n_atoms (int): Number of atoms in the frame.
+            frame_id (int, optional): Frame index. Default is 0.
+            chunk_size (int, optional): Number of atoms per chunk. Default is 1000.
+            use_cupy (bool, optional): Use CuPy arrays for GPU. Default is False.
+            use_float32 (bool, optional): Use float32 precision. Default is False.
+
+        Returns:
+            None
         """
         if use_cupy:
             import cupy as cp
@@ -114,20 +138,31 @@ class Grid():
                 ids = xi_w * ycells * zcells + yi_w * zcells + zi_w
                 np.add.at(self.mass_array, ids, mw)
 
-
         return
 
     def calculate_densities(
-            self, 
+            self,
             unitcell_vectors,
             frame_id: int = 0,
-            chunk_size: int = 1000, 
+            chunk_size: int = 1000,
             use_cupy: bool = False,
             use_float32: bool = False
             ) -> None:
         """
-        Calculate the densities in each cell of the grid, optionally using CuPy.
-        Optimized for GPU acceleration when use_cupy=True.
+        Calculate the densities in each cell of the grid.
+
+        Uses neighbor averaging to compute the density at each grid cell.
+        Supports both CPU and GPU (CuPy) acceleration.
+
+        Args:
+            unitcell_vectors (np.ndarray): Unit cell vectors for the frame.
+            frame_id (int, optional): Frame index. Default is 0.
+            chunk_size (int, optional): Number of cells per chunk. Default is 1000.
+            use_cupy (bool, optional): Use CuPy arrays for GPU. Default is False.
+            use_float32 (bool, optional): Use float32 precision. Default is False.
+
+        Returns:
+            None
         """
         if use_cupy:
             import cupy as cp
@@ -139,7 +174,7 @@ class Grid():
             array_lib = np
             
         grid_space_mean = np.mean([self.grid_space_x, self.grid_space_y, self.grid_space_z])    
-        n_cells_to_spread = int(base.TOTAL_CELLS * round(0.1 / grid_space_mean))
+        n_cells_to_spread = int(self.neighbor_cells * round(0.1 / grid_space_mean))
         
         xcells, ycells, zcells = self.xcells, self.ycells, self.zcells
         grid_shape = (xcells, ycells, zcells)
@@ -254,7 +289,7 @@ class Grid():
             total_mass = array_lib.sum(neighbor_masses, axis=1)
             
             # Calculate densities for entire chunk
-            # TODO: what is 1.66? Ask Abraham and turn into a descriptive constant
+            # This converts the densities to units of g/L (1.66 factor)
             chunk_densities = total_mass / volume * 1.66
             
             # Store results
@@ -271,15 +306,24 @@ class Grid():
                 cp.get_default_memory_pool().free_all_blocks()
 
     def generate_bubble_object(
-            self, 
-            use_cupy: bool = False, 
+            self,
+            use_cupy: bool = False,
             use_float32: bool = False
             ) -> "Bubble":
         """
-        Generate a bubble object from the grid densities data.
-        Also, prepare a DX file header in case it will be written later.
+        Generate a Bubble object from the grid densities data.
+
+        Also prepares a DX file header for later output.
+
+        Args:
+            use_cupy (bool, optional): Use CuPy arrays for GPU. Default is False.
+            use_float32 (bool, optional): Use float32 precision. Default is False.
+
+        Returns:
+            Bubble: The resulting Bubble object.
         """
         bubble_atoms = Bubble()
+        bubble_atoms.density_threshold = self.density_threshold
         bubble_atoms.find(self.xcells, self.ycells, self.zcells, 
                           self.densities, grid_space_x=self.grid_space_x,
                           grid_space_y=self.grid_space_y,
@@ -292,6 +336,9 @@ class Grid():
     def make_dx_header(self) -> dict:
         """
         Prepare the header information for a DX file.
+
+        Returns:
+            dict: DX file header information.
         """
         header = {}
         header["width"] = self.xcells
@@ -306,24 +353,29 @@ class Grid():
         return header
     
     def write_masses_dx(
-            self, 
+            self,
             filename: str
             ) -> None:
         """
         Write the mass data to a DX file.
+
+        Args:
+            filename (str): Output filename.
+
+        Returns:
+            None
         """
         mass_grid = self.mass_array.reshape(self.xcells, self.ycells, self.zcells)
         base.write_data_array(self.make_dx_header(), mass_grid, filename)
         return
 
-# TODO: have a method in Grid to create a Bubble object
 @define
 class Bubble():
     """
-    A Bubble object contains representations of the regions of the system
-    where the density is below a certain threshold, indicating the presence
-    of bubbles or vapor pockets. It stores the coordinates of these bubbles
-    and can write them to a PDB file or DX file for visualization.
+    Represents a detected bubble or void region in a frame.
+
+    Stores the coordinates and grid mask of bubble regions, and provides
+    methods to write them to PDB or DX files for visualization.
     """
     atoms: dict = field(factory=dict)
     total_residues: int = field(default=1)
@@ -333,21 +385,38 @@ class Bubble():
     densities: np.ndarray | None = None
     bubble_data: np.ndarray | None = None
     dx_header: str = field(default="")
+    density_threshold: float = field(default=base.DEFAULT_DENSITY_THRESHOLD)
 
-    def find(self, 
-             xcells: int, 
-             ycells: int, 
-             zcells: int, 
-             box_densities: np.ndarray, 
+    def find(self,
+             xcells: int,
+             ycells: int,
+             zcells: int,
+             box_densities: np.ndarray,
              grid_space_x: float,
-             grid_space_y: float, 
-             grid_space_z: float, 
-             use_cupy: bool = False, 
+             grid_space_y: float,
+             grid_space_z: float,
+             use_cupy: bool = False,
              use_float32: bool = False
              ) -> None:
         """
-        Find bubble regions where density is below threshold.
-        Optimized for both CPU and GPU processing.
+        Identify bubble regions where density is below the threshold.
+
+        Populates the bubble_data mask and atom coordinates for the bubble.
+        Supports both CPU and GPU processing.
+
+        Args:
+            xcells (int): Number of grid cells in x direction.
+            ycells (int): Number of grid cells in y direction.
+            zcells (int): Number of grid cells in z direction.
+            box_densities (np.ndarray): Flattened density array.
+            grid_space_x (float): Grid spacing in x.
+            grid_space_y (float): Grid spacing in y.
+            grid_space_z (float): Grid spacing in z.
+            use_cupy (bool, optional): Use CuPy arrays for GPU. Default is False.
+            use_float32 (bool, optional): Use float32 precision. Default is False.
+
+        Returns:
+            None
         """
         if use_cupy:
             import cupy as cp
@@ -368,7 +437,7 @@ class Bubble():
         self.densities = box_densities.reshape((xcells, ycells, zcells))
         
         # Create bubble mask (vectorized operation)
-        bubble_mask = box_densities < base.DENSITY_THRESHOLD
+        bubble_mask = box_densities < self.density_threshold
         self.total_atoms = int(array_lib.sum(bubble_mask))
         
         if self.total_atoms == 0:
@@ -439,9 +508,18 @@ class Bubble():
             self.bubble_data = cp.asnumpy(self.bubble_data)
 
     def write_pdb(
-            self, 
+            self,
             filename: str
         ) -> None:
+        """
+        Write the bubble atom coordinates to a PDB file.
+
+        Args:
+            filename (str): Output filename.
+
+        Returns:
+            None
+        """
         with open(filename, "w") as pdb:
             for key in self.atoms:
                 pdb.write(self.atoms[key])
@@ -449,13 +527,31 @@ class Bubble():
             pdb.write("END\n")
 
     def write_densities_dx(
-            self, 
+            self,
             filename: str
         ) -> None:
+        """
+        Write the density grid to a DX file.
+
+        Args:
+            filename (str): Output filename.
+
+        Returns:
+            None
+        """
         base.write_data_array(self.dx_header, self.densities, filename)
 
     def write_bubble_dx(
-            self, 
+            self,
             filename: str
         ) -> None:
+        """
+        Write the bubble mask to a DX file.
+
+        Args:
+            filename (str): Output filename.
+
+        Returns:
+            None
+        """
         base.write_data_array(self.dx_header, self.bubble_data, filename)

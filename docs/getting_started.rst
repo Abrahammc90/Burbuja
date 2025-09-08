@@ -16,10 +16,19 @@ It provides:
 - Support for bubble analysis of trajectories
 - GPU acceleration with CuPy for large systems
 
-Installation
-------------
+Quick Installation
+------------------
 
-The easiest, quickest way to install Burbuja is to use Mamba. If you don't already have 
+If you want to quickly get Burbuja installed, and you already have an environment set up, you can just do:
+
+.. code-block:: bash
+
+    pip install burbuja
+
+Detailed Installation
+---------------------
+
+It's very helpful to install Burbuja using Mamba. If you don't already have 
 Mamba installed, Download the Miniforge install script and run.
 
 .. code-block:: bash
@@ -43,7 +52,21 @@ If you wish to benefit from GPU acceleration, install CuPy. See the CuPy documen
 
     mamba install cupy
 
-Next, simply install Burbuja. All remaining dependencies should be handled automatically:
+Installation with Pip
+~~~~~~~~~~~~~~~~~~~~~
+
+Once your mamba environment is set up, simply use pip to install from PyPI:
+
+.. code-block:: bash
+
+    pip install burbuja
+    
+All necessary dependencies will be automatically installed alongside.
+
+Installation from Source
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Simply install Burbuja from the Github repository. All remaining dependencies should be handled automatically:
 
 .. code-block:: bash
 
