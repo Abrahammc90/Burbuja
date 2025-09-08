@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: burbuja
-Version: 1.0.0+28.g6b55374.dirty
+Version: 0.9.0+35.g5432dd6.dirty
 Summary: Bubble detection for molecular dynamics simulations.
 Author-email: Abraham Muñiz Chicharro <abrahanmuniz@gmail.com>, Lane Votapka <lvotapka100@gmail.com>
 License-Expression: MIT

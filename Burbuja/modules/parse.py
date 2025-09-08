@@ -160,8 +160,6 @@ def fill_out_coordinates_and_masses(pdb_filename, coordinates, mass_list, n_fram
                     if mass == 0.0:
                         print(f"Warning: No mass found for atom {name_with_spaces} in frame {frame_id}. "
                               "Assuming mass of 0.0.")
-                        print("element_symbol:", element_symbol, "name_with_spaces:", name_with_spaces)
-                        #exit()
                     mass_list[atom_id] = mass
                     atom_id += 1
                 if atom_id == n_atoms:
