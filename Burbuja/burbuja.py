@@ -110,7 +110,7 @@ def burbuja(
         box_grid.initialize_cells(use_cupy=use_cupy, use_float32=use_float32)
         box_grid.calculate_cell_masses(coordinates, masses, n_atoms, frame_id, use_cupy=use_cupy)
         box_grid.calculate_densities(unitcell_vectors, frame_id=frame_id, use_cupy=use_cupy)
-        bubble = box_grid.generate_bubble_object(use_cupy=use_cupy)
+        bubble = box_grid.generate_bubble_object(use_cupy=use_cupy, use_float32=True)
         bubbles.append(bubble)
     return bubbles
 
@@ -178,61 +178,75 @@ def has_bubble(
                 break
     return found_bubble
 
+
 def main():
-    def main():
-        """
-        Command-line interface for Burbuja bubble detection.
+    """
+    Command-line interface for Burbuja bubble detection.
 
-        Parses command-line arguments, loads the structure and topology as
-        needed, and runs bubble detection. Prints results and optionally
-        writes DX files for visualization.
+    Parses command-line arguments, loads the structure and topology as
+    needed, and runs bubble detection. Prints results and optionally
+    writes DX files for visualization.
 
-        Usage:
-            python -m Burbuja.burbuja STRUCTURE_FILE [options]
+    Usage:
+        python -m Burbuja.burbuja STRUCTURE_FILE [options]
 
-        For a full list of options, see the user guide or run with
-        -h/--help.
-        """
-        argparser = argparse.ArgumentParser(
-            description="Automatically detect bubbles and vapor pockets and local "
-                "voids within molecular dynamics simulation structures making use "
-                "of explicit solvent.")
-        # ...existing code...
-        args = argparser.parse_args()
-        args = vars(args)
-        structure_file = pathlib.Path(args["structure_file"])
-        topology_file = pathlib.Path(args["topology"]) if args["topology"] else None
-        grid_resolution = args["grid_resolution"]
-        use_cupy = args["use_cupy"]
-        detailed_output = args["detailed_output"]
-        density_threshold = args["density_threshold"]
-        minimum_bubble_fraction = args["minimum_bubble_fraction"]
-        neighbor_cells = args["neighbor_cells"]
+    For a full list of options, see the user guide or run with
+    -h/--help.
+    """
+    argparser = argparse.ArgumentParser(
+        description="Automatically detect bubbles and vapor pockets and local "
+            "voids within molecular dynamics simulation structures making use "
+            "of explicit solvent.")
+    argparser.add_argument("structure_file", help="Path to structure file (e.g., PDB, DCD+topology).")
+    argparser.add_argument("-t", "--topology", default=None,
+                   help="Optional topology file (e.g., .prmtop, .psf) for trajectory formats.")
+    argparser.add_argument("-r", "--grid-resolution", type=float, default=0.1,
+                   help="Grid spacing in nm/Å (match your code’s units).")
+    argparser.add_argument("-c", "--use-cupy", action="store_true",
+                   help="Enable GPU acceleration via CuPy, if available.")
+    argparser.add_argument("-d", "--detailed-output", action="store_true",
+                   help="Write .dx files for visualization.")
+    argparser.add_argument("--density-threshold", type=float, default=0.2,
+                   help="Density threshold for bubble detection.")
+    argparser.add_argument("--minimum-bubble-fraction", type=float, default=0.001,
+                   help="Minimum fraction of low-density cells to count as a bubble.")
+    argparser.add_argument("-n", "--neighbor-cells", type=int, default=1,
+                   help="Connectivity radius (in grid cells) for clustering.")
+    args = argparser.parse_args()
+    args = vars(args)
+    structure_file = pathlib.Path(args["structure_file"])
+    topology_file = pathlib.Path(args["topology"]) if args["topology"] else None
+    grid_resolution = args["grid_resolution"]
+    use_cupy = args["use_cupy"]
+    detailed_output = args["detailed_output"]
+    density_threshold = args["density_threshold"]
+    minimum_bubble_fraction = args["minimum_bubble_fraction"]
+    neighbor_cells = args["neighbor_cells"]
 
-        if topology_file is None:
-            structure = str(structure_file)
-        else:
-            structure = mdtraj.load(structure_file, top=topology_file)
-        if detailed_output:
-            structure_file_base = os.path.splitext(structure_file.name)[0]
-            dx_filename_base = f"{structure_file_base}_bubble"
-        else:
-            dx_filename_base = None
-    
-        time_start = time.time()
-        has_bubble_result = has_bubble(structure, grid_resolution, use_cupy=use_cupy,
-                                       dx_filename_base=dx_filename_base, 
-                                       density_threshold=density_threshold,
-                                       minimum_bubble_fraction=minimum_bubble_fraction,
-                                       neighbor_cells=neighbor_cells)
-        time_end = time.time()
-        elapsed_time = time_end - time_start
-        print(f"Bubble detection completed in {elapsed_time:.2f} seconds.")
-    
-        if has_bubble_result:
-            print("The structure has a bubble.")
-        else:
-            print("No bubble detected in structure.")
+    if topology_file is None:
+        structure = str(structure_file)
+    else:
+        structure = mdtraj.load(structure_file, top=topology_file)
+    if detailed_output:
+        structure_file_base = os.path.splitext(structure_file.name)[0]
+        dx_filename_base = f"{structure_file_base}_bubble"
+    else:
+        dx_filename_base = None
 
-    if __name__ == "__main__":
-        main()
+    time_start = time.time()
+    has_bubble_result = has_bubble(structure, grid_resolution, use_cupy=use_cupy,
+                                    dx_filename_base=dx_filename_base, 
+                                    density_threshold=density_threshold,
+                                    minimum_bubble_fraction=minimum_bubble_fraction,
+                                    neighbor_cells=neighbor_cells)
+    time_end = time.time()
+    elapsed_time = time_end - time_start
+    print(f"Bubble detection completed in {elapsed_time:.2f} seconds.")
+
+    if has_bubble_result:
+        print("The structure has a bubble.")
+    else:
+        print("No bubble detected in structure.")
+
+if __name__ == "__main__":
+    main()
