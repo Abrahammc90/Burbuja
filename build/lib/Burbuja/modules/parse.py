@@ -118,7 +118,7 @@ def get_mass_from_element_symbol(element_symbol, name_with_spaces):
         mass = element.mass
     return mass
 
-def fill_out_coordinates_and_masses(pdb_filename, coordinates, mass_list, n_frames, n_atoms):
+def fill_out_coordinates_and_masses(pdb_filename, coordinates, n_frames, n_atoms):
     """
     Fill out the coordinates array with data from a PDB file.
     
@@ -131,6 +131,7 @@ def fill_out_coordinates_and_masses(pdb_filename, coordinates, mass_list, n_fram
     Returns:
     np.ndarray: Filled coordinates array.
     """
+    mass_list = []
     with open(pdb_filename, 'r') as file:
         frame_id = 0
         atom_id = 0
@@ -139,6 +140,7 @@ def fill_out_coordinates_and_masses(pdb_filename, coordinates, mass_list, n_fram
                 if atom_id < n_atoms:
                     coords = [0.1 * float(line[30:38]), 0.1 * float(line[38:46]), 0.1 * float(line[46:54])]
                     coordinates[frame_id, atom_id, :] = coords
+                    atom_id += 1
                     name_with_spaces = line[12:16]
                     element_symbol = line[76:78].strip()
                     
@@ -146,9 +148,8 @@ def fill_out_coordinates_and_masses(pdb_filename, coordinates, mass_list, n_fram
                     if mass == 0.0:
                         print(f"Warning: No mass found for atom {name_with_spaces} in frame {frame_id}. "
                               "Assuming mass of 0.0.")
-                    
-                    mass_list[atom_id] = mass
-                    atom_id += 1
+                        
+                    mass_list.append(mass)
                 if atom_id == n_atoms:
                     atom_id = 0
                     frame_id += 1

@@ -1,0 +1,6 @@
+numpy
+attrs
+mdtraj
+
+[test]
+pytest>=6.1.2

@@ -35,7 +35,7 @@ class Grid():
     def initialize_cells(
             self, 
             use_cupy=False,
-            use_float32=True
+            use_float32=False
             ) -> None:
         """
         Assign the number of cells in each direction based on the
@@ -70,7 +70,7 @@ class Grid():
             frame_id: int = 0,
             chunk_size: int = 1000,
             use_cupy: bool = False,
-            use_float32: bool = True
+            use_float32: bool = False
             ) -> None:
         """
         Calculate the mass contained within each cell of the grid.
@@ -123,7 +123,7 @@ class Grid():
             frame_id: int = 0,
             chunk_size: int = 1000, 
             use_cupy: bool = False,
-            use_float32: bool = True
+            use_float32: bool = False
             ) -> None:
         """
         Calculate the densities in each cell of the grid, optionally using CuPy.
@@ -359,10 +359,13 @@ class Bubble():
         float_dtype = np.float32 if use_float32 else np.float64
         
         # Reshape densities to 3D grid
+        print(1)
         self.densities = box_densities.reshape((xcells, ycells, zcells))
         
         # Create bubble mask (vectorized operation)
+        print(2)
         bubble_mask = box_densities < base.DENSITY_THRESHOLD
+        print(3)
         self.total_atoms = int(array_lib.sum(bubble_mask))
         
         if self.total_atoms == 0:
@@ -372,30 +375,44 @@ class Bubble():
             self.total_bubble_volume = 0.0
             return
         
+        print(4)
         # Get indices of bubble cells (vectorized)
         bubble_indices = array_lib.where(bubble_mask)[0]
         
+        print(5)
         # Convert 1D indices to 3D coordinates (vectorized)
         iz = bubble_indices % zcells
+        print(6)
         temp = bubble_indices // zcells
+        print(7)
         iy = temp % ycells
+        print(8)
         ix = temp // ycells
+        print(9)
         
         # Calculate physical coordinates (vectorized) with controlled precision
     
         # CPU calculations use specified precision
+        print(10)
         x_coords = (ix * float_dtype(grid_space_x) + float_dtype(grid_space_x)/2).astype(float_dtype)
+        print(11)
         y_coords = (iy * float_dtype(grid_space_y) + float_dtype(grid_space_y)/2).astype(float_dtype)
+        print(12)
         z_coords = (iz * float_dtype(grid_space_z) + float_dtype(grid_space_z)/2).astype(float_dtype)
     
         # Create bubble_data array
+        print(13)
         self.bubble_data = array_lib.zeros((xcells, ycells, zcells), dtype=bool)
+        print(14)
         self.bubble_data[ix, iy, iz] = True
-
+        print(15)
         x_coords_cpu = x_coords
+        print(16)
         y_coords_cpu = y_coords
+        print(17)
         z_coords_cpu = z_coords
         
+        print(18)
         # Generate PDB atom records (this part stays on CPU since it's string formatting)
         self.atoms = {}
         for i in range(self.total_atoms):
@@ -407,10 +424,13 @@ class Bubble():
                 str(atom_id), str(residue_id), x, y, z
             )
             self.atoms[atom_id] = atom_pdb
+        print(20)
         
         # Calculate total bubble volume with controlled precision
         if use_float32:
+            print(21)
             volume_per_cell = float_dtype(grid_space_x) * float_dtype(grid_space_y) * float_dtype(grid_space_z)
+            print(22)
             self.total_bubble_volume = float(float_dtype(self.total_atoms) * volume_per_cell)
         else:
             self.total_bubble_volume = self.total_atoms * grid_space_x * grid_space_y * grid_space_z
