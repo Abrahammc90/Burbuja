@@ -1,0 +1,232 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Reference &mdash; burbuja  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="_static/copybutton.js?v=f281be69"></script>
+      <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Developer Guide" href="developer_guide.html" />
+    <link rel="prev" title="Burbuja User Guide" href="user_guide.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            burbuja
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="user_guide.html">Burbuja User Guide</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="developer_guide.html">Developer Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">burbuja</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">API Reference</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/api.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="api-reference">
+<h1>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading"></a></h1>
+<p>This section provides detailed documentation for the most common Python API functions and objects in Burbuja.</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#burbuja-function" id="id1">burbuja() Function</a></p></li>
+<li><p><a class="reference internal" href="#has-bubble-function" id="id2">has_bubble() Function</a></p></li>
+<li><p><a class="reference internal" href="#bubble-object" id="id3">Bubble Object</a></p></li>
+</ul>
+</nav>
+<section id="burbuja-function">
+<h2><a class="toc-backref" href="#id1" role="doc-backlink">burbuja() Function</a><a class="headerlink" href="#burbuja-function" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="burbuja">
+<span class="sig-name descname"><span class="pre">burbuja</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">structure</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grid_resolution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_cupy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_float32</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">density_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neighbor_cells</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#burbuja" title="Link to this definition"></a></dt>
+<dd><p>Detect bubbles in a structure or trajectory and return a list of Bubble objects (one per frame).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>structure</strong> (<em>str</em><em> or </em><em>mdtraj.Trajectory</em>) – Path to a structure file (e.g., PDB, DCD) or an mdtraj.Trajectory object.</p></li>
+<li><p><strong>grid_resolution</strong> (<em>float</em>) – Grid spacing in nanometers. Default: 0.1</p></li>
+<li><p><strong>use_cupy</strong> (<em>bool</em>) – Use CuPy for GPU acceleration. Default: False</p></li>
+<li><p><strong>use_float32</strong> (<em>bool</em>) – Use float32 precision for calculations. Default: False</p></li>
+<li><p><strong>density_threshold</strong> (<em>float</em>) – Density threshold for void detection (g/L). Default: 0.25</p></li>
+<li><p><strong>neighbor_cells</strong> (<em>int</em>) – Number of cells from the central cell to include in the density average. Default: 4</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of Bubble objects, one per frame.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[Bubble]</p>
+</dd>
+</dl>
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">mdtraj</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">Burbuja</span><span class="w"> </span><span class="kn">import</span> <span class="n">burbuja</span>
+<span class="n">traj</span> <span class="o">=</span> <span class="n">mdtraj</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;traj.dcd&#39;</span><span class="p">,</span> <span class="n">top</span><span class="o">=</span><span class="s1">&#39;top.prmtop&#39;</span><span class="p">)</span>
+<span class="n">bubbles</span> <span class="o">=</span> <span class="n">burbuja</span><span class="p">(</span><span class="n">traj</span><span class="p">,</span> <span class="n">grid_resolution</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">use_cupy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">bubble</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">bubbles</span><span class="p">):</span>
+         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Frame </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: Bubble volume = </span><span class="si">{</span><span class="n">bubble</span><span class="o">.</span><span class="n">total_bubble_volume</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> nm^3&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+<section id="has-bubble-function">
+<h2><a class="toc-backref" href="#id2" role="doc-backlink">has_bubble() Function</a><a class="headerlink" href="#has-bubble-function" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="has_bubble">
+<span class="sig-name descname"><span class="pre">has_bubble</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">structure</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grid_resolution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_cupy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dx_filename_base</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">density_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">minimum_bubble_fraction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.005</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neighbor_cells</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#has_bubble" title="Link to this definition"></a></dt>
+<dd><p>Quickly check if a structure or trajectory contains a significant bubble.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>structure</strong> (<em>str</em><em> or </em><em>mdtraj.Trajectory</em>) – Path to a structure file or an mdtraj.Trajectory object.</p></li>
+<li><p><strong>grid_resolution</strong> (<em>float</em>) – Grid spacing in nanometers. Default: 0.1</p></li>
+<li><p><strong>use_cupy</strong> (<em>bool</em>) – Use CuPy for GPU acceleration. Default: False</p></li>
+<li><p><strong>dx_filename_base</strong> (<em>str</em><em> or </em><em>None</em>) – If provided, write DX files for each frame with a bubble. Default: None</p></li>
+<li><p><strong>density_threshold</strong> (<em>float</em>) – Density threshold for void detection (g/L). Default: 0.25</p></li>
+<li><p><strong>minimum_bubble_fraction</strong> (<em>float</em>) – Minimum fraction of system volume for a bubble to be considered significant. Default: 0.005</p></li>
+<li><p><strong>neighbor_cells</strong> (<em>int</em>) – Number of cells from the central cell to include in the density average. Default: 4</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>True if a significant bubble is found, False otherwise.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">Burbuja</span><span class="w"> </span><span class="kn">import</span> <span class="n">has_bubble</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">mdtraj</span>
+<span class="n">traj</span> <span class="o">=</span> <span class="n">mdtraj</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;traj.dcd&#39;</span><span class="p">,</span> <span class="n">top</span><span class="o">=</span><span class="s1">&#39;top.prmtop&#39;</span><span class="p">)</span>
+<span class="n">contains_bubble</span> <span class="o">=</span> <span class="n">has_bubble</span><span class="p">(</span><span class="n">traj</span><span class="p">,</span> <span class="n">use_cupy</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">dx_filename_base</span><span class="o">=</span><span class="s1">&#39;bubble_output&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Contains bubble?&quot;</span><span class="p">,</span> <span class="n">contains_bubble</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+<section id="bubble-object">
+<h2><a class="toc-backref" href="#id3" role="doc-backlink">Bubble Object</a><a class="headerlink" href="#bubble-object" title="Link to this heading"></a></h2>
+<p>The Bubble object represents a detected bubble or void region in a frame. It is returned by the <cite>burbuja()</cite> function.</p>
+<p><strong>Attributes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">densities</span></code>: 3D NumPy array of grid cell densities.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bubble_data</span></code>: 3D NumPy array (bool) indicating which cells are part of a bubble.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">atoms</span></code>: Dictionary of atom records for bubble visualization (PDB format), as an alternative to DX file.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">total_atoms</span></code>: Number of grid cells identified as part of a bubble.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">total_bubble_volume</span></code>: Total volume of the bubble (nm³).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">total_system_volume</span></code>: Total volume of the system (nm³).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dx_header</span></code>: Header information for DX file output.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">density_threshold</span></code>: Density threshold used for bubble detection.</p></li>
+</ul>
+<p><strong>Methods:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">find(...)</span></code>: Identify bubble regions in the grid (used internally).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">write_pdb(filename)</span></code>: Write bubble atoms to a PDB file for visualization.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">write_densities_dx(filename)</span></code>: Write the density grid to a DX file.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">write_bubble_dx(filename)</span></code>: Write the bubble mask to a DX file.</p></li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">Burbuja</span><span class="w"> </span><span class="kn">import</span> <span class="n">burbuja</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">mdtraj</span>
+<span class="n">traj</span> <span class="o">=</span> <span class="n">mdtraj</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;traj.dcd&#39;</span><span class="p">,</span> <span class="n">top</span><span class="o">=</span><span class="s1">&#39;top.prmtop&#39;</span><span class="p">)</span>
+<span class="n">bubbles</span> <span class="o">=</span> <span class="n">burbuja</span><span class="p">(</span><span class="n">traj</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">bubble</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">bubbles</span><span class="p">):</span>
+         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Frame </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: Bubble volume = </span><span class="si">{</span><span class="n">bubble</span><span class="o">.</span><span class="n">total_bubble_volume</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> nm^3&quot;</span><span class="p">)</span>
+         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;System volume: </span><span class="si">{</span><span class="n">bubble</span><span class="o">.</span><span class="n">total_system_volume</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> nm^3&quot;</span><span class="p">)</span>
+         <span class="n">bubble</span><span class="o">.</span><span class="n">write_pdb</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;bubble_frame_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.pdb&quot;</span><span class="p">)</span>
+         <span class="n">bubble</span><span class="o">.</span><span class="n">write_bubble_dx</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;bubble_frame_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.dx&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>See the tutorials for more advanced usage and visualization examples.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="user_guide.html" class="btn btn-neutral float-left" title="Burbuja User Guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="developer_guide.html" class="btn btn-neutral float-right" title="Developer Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Abraham Muñiz Chicharro  and Lane Votapka. Project structure based on the Computational Molecular Science Python Cookiecutter version 1.11.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

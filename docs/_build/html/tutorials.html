@@ -1,0 +1,306 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tutorials &mdash; burbuja  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="_static/copybutton.js?v=f281be69"></script>
+      <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Burbuja User Guide" href="user_guide.html" />
+    <link rel="prev" title="Getting Started" href="getting_started.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            burbuja
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="user_guide.html">Burbuja User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="developer_guide.html">Developer Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">burbuja</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Tutorials</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/tutorials.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="tutorials">
+<h1>Tutorials<a class="headerlink" href="#tutorials" title="Link to this heading"></a></h1>
+<p>This section provides step-by-step tutorials to help you get started with Burbuja.</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#prerequisites" id="id4">Prerequisites</a></p></li>
+<li><p><a class="reference internal" href="#tutorial-1-basic-bubble-detection" id="id5">Tutorial 1: Basic Bubble Detection</a></p></li>
+<li><p><a class="reference internal" href="#tutorial-2-bubble-shape-and-size" id="id6">Tutorial 2: Bubble Shape and Size</a></p></li>
+<li><p><a class="reference internal" href="#tutorial-3-trajectories-alternative-file-formats-and-gpu-acceleration" id="id7">Tutorial 3: Trajectories, Alternative File Formats, and GPU Acceleration</a></p></li>
+<li><p><a class="reference internal" href="#tutorial-4-using-the-burbuja-api" id="id8">Tutorial 4: Using the Burbuja API</a></p>
+<ul>
+<li><p><a class="reference internal" href="#tutorial-4-1-simple-bubble-detection" id="id9">Tutorial 4.1: Simple Bubble Detection</a></p></li>
+<li><p><a class="reference internal" href="#tutorial-4-2-bubble-detection-on-a-trajectory" id="id10">Tutorial 4.2: Bubble Detection on a Trajectory</a></p></li>
+<li><p><a class="reference internal" href="#tutorial-4-3-accessing-bubble-objects" id="id11">Tutorial 4.3. Accessing Bubble Objects</a></p></li>
+</ul>
+</li>
+</ul>
+</nav>
+<section id="prerequisites">
+<h2><a class="toc-backref" href="#id4" role="doc-backlink">Prerequisites</a><a class="headerlink" href="#prerequisites" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Burbuja installed and working (see <a class="reference internal" href="getting_started.html"><span class="doc">Getting Started</span></a>) along with all required, recommended, and optional dependencies, including:</p>
+<ul>
+<li><p>CuPy</p></li>
+</ul>
+</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>We are assuming that you have installed Burbuja via Pip, thus allowing you to use it as a command in the terminal. If you have installed via source, then you will need to provide the path to burbuja.py, e.g. “python ~/Burbuja/Burbuja/burbuja.py”.</p>
+</div>
+</section>
+<section id="tutorial-1-basic-bubble-detection">
+<h2><a class="toc-backref" href="#id5" role="doc-backlink">Tutorial 1: Basic Bubble Detection</a><a class="headerlink" href="#tutorial-1-basic-bubble-detection" title="Link to this heading"></a></h2>
+<p>This tutorials walks you through detecting a bubble within a simple PDB file.</p>
+<p>You may start by downloading the following files, which contain a solvated trypsin/
+benzamidine system <em>with</em> and <em>without</em> bubbles, respectively:</p>
+<p><a class="reference download internal" download="" href="_downloads/ae9306b349fb1ee15ac6c3516a47cb97/tryp_ben_bubble.pdb"><code class="xref download docutils literal notranslate"><span class="pre">tryp_ben_bubble.pdb</span></code></a></p>
+<p><a class="reference download internal" download="" href="_downloads/5e58bf01dc6ff82055591d060bf7807d/tryp_ben_no_bubble.pdb"><code class="xref download docutils literal notranslate"><span class="pre">tryp_ben_no_bubble.pdb</span></code></a></p>
+<figure class="align-center" id="id1">
+<img alt="_images/tb_bubble.png" src="_images/tb_bubble.png" />
+<figcaption>
+<p><span class="caption-text">Figure 1: This solvated box containing the trypsin/benzamidine system has been improperly solvated and contains a bubble.</span><a class="headerlink" href="#id1" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<figure class="align-center" id="id2">
+<img alt="_images/tb_no_bubble.png" src="_images/tb_no_bubble.png" />
+<figcaption>
+<p><span class="caption-text">Figure 2: In contrast to Figure 1, this trypsin/benzamidine system contains no bubbles.</span><a class="headerlink" href="#id2" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>Let us start by seeing whether Burbuja detects bubbles in these structures:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>burbuja<span class="w"> </span>tryp_ben_bubble.pdb
+</pre></div>
+</div>
+<p>The output should indicate the time to complete the calculation, and confirm the existence of a bubble. Next:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>burbuja<span class="w"> </span>tryp_ben_no_bubble.pdb
+</pre></div>
+</div>
+<p>No bubble should be detected.</p>
+<p>Using Burbuja from the command line can be that easy!</p>
+</section>
+<section id="tutorial-2-bubble-shape-and-size">
+<h2><a class="toc-backref" href="#id6" role="doc-backlink">Tutorial 2: Bubble Shape and Size</a><a class="headerlink" href="#tutorial-2-bubble-shape-and-size" title="Link to this heading"></a></h2>
+<p>Next, for the structure that has a bubble, we will detect its shape and size. This is done with the ‘-d’ argument.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>burbuja<span class="w"> </span>tryp_ben_bubble.pdb<span class="w"> </span>-d
+</pre></div>
+</div>
+<p>This time, the program prints the bubble volume, and writes a file named ‘tryp_ben_bubble_bubble_frame_0.dx’, which you may load into a molecular visualizer such as VMD or NGLView.</p>
+<figure class="align-center" id="id3">
+<img alt="_images/tb_bubble_location_size.png" src="_images/tb_bubble_location_size.png" />
+<figcaption>
+<p><span class="caption-text">Figure 3: Bubble size and location are shown in red by visualizing the resulting DX file.</span><a class="headerlink" href="#id3" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+</section>
+<section id="tutorial-3-trajectories-alternative-file-formats-and-gpu-acceleration">
+<h2><a class="toc-backref" href="#id7" role="doc-backlink">Tutorial 3: Trajectories, Alternative File Formats, and GPU Acceleration</a><a class="headerlink" href="#tutorial-3-trajectories-alternative-file-formats-and-gpu-acceleration" title="Link to this heading"></a></h2>
+<p>In this tutorial, we will start by detecting bubbles in a trajectory. Please download the following files:</p>
+<p><a class="reference download internal" download="" href="_downloads/339f12fbc1355cc0a8061f0bb6cb00ce/tryp_ben.prmtop"><code class="xref download docutils literal notranslate"><span class="pre">tryp_ben.prmtop</span></code></a></p>
+<p><a class="reference download internal" download="" href="_downloads/19914a2ae2ef3c9c36e6ab30303155cd/tb_traj.dcd"><code class="xref download docutils literal notranslate"><span class="pre">tb_traj.dcd</span></code></a></p>
+<p>Burbuja allows one to load structures in a variety of formats, basically anything supported by MDTraj (<a class="reference external" href="https://mdtraj.org/">https://mdtraj.org/</a>). In this case, we will load a prmtop/dcd file pair to detect bubbles in the trajectory:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>burbuja<span class="w"> </span>tb_traj.dcd<span class="w"> </span>-t<span class="w"> </span>tryp_ben.prmtop<span class="w"> </span>-d
+</pre></div>
+</div>
+<p>This command will print out the volume of the bubble for each frame, where detected.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If the previous command were run without the ‘-d’ argument, it would simply detect whether a bubble was found anywhere in the trajectory.</p>
+</div>
+<p>Next, let’s try GPU acceleration (If you have installed CuPy) with the ‘-c’ argument:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>burbuja<span class="w"> </span>tb_traj.dcd<span class="w"> </span>-t<span class="w"> </span>tryp_ben.prmtop<span class="w"> </span>-d<span class="w"> </span>-c
+</pre></div>
+</div>
+<p>The command should finish much more quickly.</p>
+</section>
+<section id="tutorial-4-using-the-burbuja-api">
+<h2><a class="toc-backref" href="#id8" role="doc-backlink">Tutorial 4: Using the Burbuja API</a><a class="headerlink" href="#tutorial-4-using-the-burbuja-api" title="Link to this heading"></a></h2>
+<p>This tutorial may also be run with the accompanying Jupyter Notebook located at: ~/Burbuja/Burbuja/jupyter_notebooks/api_tutorial.ipynb within the Github repository: (<a class="reference external" href="https://github.com/Abrahammc90/Burbuja.git">https://github.com/Abrahammc90/Burbuja.git</a>).</p>
+<p>The need may arise to use Burbuja from within a Python script (for a workflow, for instance). Hence why an API is available for using Burbuja. Complete the steps of this notebook to see examples of how to use Burbuja’s API.</p>
+<p>NOTE: You will need to install Burbuja and its dependencies, as well as NGLView:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run this in the terminal</span>
+pip<span class="w"> </span>install<span class="w"> </span>nglview
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run this and all subsequent code in Python</span>
+<span class="c1"># paths - modify as needed</span>
+<span class="n">hsp90_structure_path</span> <span class="o">=</span> <span class="s2">&quot;~/Burbuja/Burbuja/tests/data/hsp90.pdb&quot;</span>
+<span class="n">tryp_ben_dcd_path</span> <span class="o">=</span> <span class="s2">&quot;~/Burbuja/Burbuja/tests/data/tb_traj.dcd&quot;</span>
+<span class="n">tryp_ben_prmtop_path</span> <span class="o">=</span> <span class="s2">&quot;~/Burbuja/Burbuja/tests/data/tryp_ben.prmtop&quot;</span>
+<span class="c1"># Imports and other preliminaries</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">mdtraj</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">nglview</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">Burbuja.burbuja</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">burbuja</span>
+<span class="n">hsp90_structure_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">hsp90_structure_path</span><span class="p">)</span>
+<span class="n">tryp_ben_dcd_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">tryp_ben_dcd_path</span><span class="p">)</span>
+<span class="n">tryp_ben_prmtop_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">tryp_ben_prmtop_path</span><span class="p">)</span>
+</pre></div>
+</div>
+<section id="tutorial-4-1-simple-bubble-detection">
+<h3><a class="toc-backref" href="#id9" role="doc-backlink">Tutorial 4.1: Simple Bubble Detection</a><a class="headerlink" href="#tutorial-4-1-simple-bubble-detection" title="Link to this heading"></a></h3>
+<p>First, we will use the API to simply detect whether a bubble exists in a HSP90 solvated structure.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hsp90_contains_bubble</span> <span class="o">=</span> <span class="n">burbuja</span><span class="o">.</span><span class="n">has_bubble</span><span class="p">(</span><span class="n">hsp90_structure_path</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;HSP90 structure contains bubble:&quot;</span><span class="p">,</span> <span class="n">hsp90_contains_bubble</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>No bubble is found in this structure.</p>
+</section>
+<section id="tutorial-4-2-bubble-detection-on-a-trajectory">
+<h3><a class="toc-backref" href="#id10" role="doc-backlink">Tutorial 4.2: Bubble Detection on a Trajectory</a><a class="headerlink" href="#tutorial-4-2-bubble-detection-on-a-trajectory" title="Link to this heading"></a></h3>
+<p>Next, we will see how to load a MDtraj trajectory object and run it through Burbuja with some alternative settings, like GPU acceleration.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">traj_structure</span> <span class="o">=</span> <span class="n">mdtraj</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">tryp_ben_dcd_path</span><span class="p">,</span> <span class="n">top</span><span class="o">=</span><span class="n">tryp_ben_prmtop_path</span><span class="p">)</span>
+<span class="n">traj_contains_bubble</span> <span class="o">=</span> <span class="n">burbuja</span><span class="o">.</span><span class="n">has_bubble</span><span class="p">(</span><span class="n">traj_structure</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Trajectory contains bubble:&quot;</span><span class="p">,</span> <span class="n">traj_contains_bubble</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Aha! We have found a bubble. Let’s see where and how big…</p>
+<p>The “dx_filename_base” argument defines the base name for the DX files, and indicates to Burbuja that we want to write the bubbles to DX.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">dx_filename_base</span> <span class="o">=</span> <span class="s2">&quot;traj_bubble&quot;</span>
+<span class="n">traj_contains_bubble</span> <span class="o">=</span> <span class="n">burbuja</span><span class="o">.</span><span class="n">has_bubble</span><span class="p">(</span><span class="n">traj_structure</span><span class="p">,</span> <span class="n">dx_filename_base</span><span class="o">=</span><span class="n">dx_filename_base</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>It looks like Burbuja wrote 6 frames. Let’s load them and visualize the resulting bubbles.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">view_list</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="c1"># Must be reloaded for visualization because Burbuja changes the MDTraj object</span>
+<span class="n">new_traj_structure</span> <span class="o">=</span> <span class="n">mdtraj</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">tryp_ben_dcd_path</span><span class="p">,</span> <span class="n">top</span><span class="o">=</span><span class="n">tryp_ben_prmtop_path</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">):</span>
+    <span class="n">dx_filename</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">dx_filename_base</span><span class="si">}</span><span class="s2">_frame_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.dx&quot;</span>
+    <span class="n">traj_structure_this_frame</span> <span class="o">=</span> <span class="n">new_traj_structure</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+    <span class="n">view</span> <span class="o">=</span> <span class="n">nglview</span><span class="o">.</span><span class="n">show_mdtraj</span><span class="p">(</span><span class="n">traj_structure_this_frame</span><span class="p">)</span>
+    <span class="n">view</span><span class="o">.</span><span class="n">add_component</span><span class="p">(</span><span class="n">dx_filename</span><span class="p">)</span>
+    <span class="n">view</span><span class="o">.</span><span class="n">clear_representations</span><span class="p">()</span>
+    <span class="n">view</span><span class="o">.</span><span class="n">component_1</span><span class="o">.</span><span class="n">clear_representations</span><span class="p">()</span>
+    <span class="n">view</span><span class="o">.</span><span class="n">add_cartoon</span><span class="p">(</span><span class="s2">&quot;protein&quot;</span><span class="p">)</span>
+    <span class="n">view</span><span class="o">.</span><span class="n">add_licorice</span><span class="p">(</span><span class="s2">&quot;water&quot;</span><span class="p">)</span>
+    <span class="n">view</span><span class="o">.</span><span class="n">component_1</span><span class="o">.</span><span class="n">add_surface</span><span class="p">(</span><span class="n">opacity</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">wireframe</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;red&quot;</span><span class="p">,</span> <span class="n">isolevel</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+    <span class="n">view_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">view</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">view</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">view_list</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Iteration: </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">display</span><span class="p">(</span><span class="n">view</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>You should be able to see the bubble locations highlighted in red.</p>
+<p>If we wanted the bubble detection to go faster, we could use GPU acceleration with CuPy:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">dx_filename_base</span> <span class="o">=</span> <span class="s2">&quot;traj_bubble&quot;</span>
+<span class="n">time_start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+<span class="n">traj_contains_bubble</span> <span class="o">=</span> <span class="n">burbuja</span><span class="o">.</span><span class="n">has_bubble</span><span class="p">(</span><span class="n">traj_structure</span><span class="p">,</span> <span class="n">dx_filename_base</span><span class="o">=</span><span class="n">dx_filename_base</span><span class="p">,</span> <span class="n">use_cupy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">time_end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+<span class="n">elapsed_time</span> <span class="o">=</span> <span class="n">time_end</span> <span class="o">-</span> <span class="n">time_start</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Bubble detection completed in </span><span class="si">{</span><span class="n">elapsed_time</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> seconds.&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="tutorial-4-3-accessing-bubble-objects">
+<h3><a class="toc-backref" href="#id11" role="doc-backlink">Tutorial 4.3. Accessing Bubble Objects</a><a class="headerlink" href="#tutorial-4-3-accessing-bubble-objects" title="Link to this heading"></a></h3>
+<p>If you want more low-level access to information Burbuja obtains about structures, the <cite>burbuja()</cite> function returns a list of <cite>Bubble</cite> objects that have additional attributes and methods for analysis.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">Burbuja.modules.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_MINIMUM_BUBBLE_FRACTION</span>
+<span class="n">bubbles</span> <span class="o">=</span> <span class="n">burbuja</span><span class="o">.</span><span class="n">burbuja</span><span class="p">(</span><span class="n">traj_structure</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">bubble</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">bubbles</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">bubble</span><span class="o">.</span><span class="n">total_bubble_volume</span> <span class="o">&gt;</span> <span class="n">DEFAULT_MINIMUM_BUBBLE_FRACTION</span> <span class="o">*</span> <span class="n">bubble</span><span class="o">.</span><span class="n">total_system_volume</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Frame: </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Bubble detected with volume: </span><span class="si">{</span><span class="n">bubble</span><span class="o">.</span><span class="n">total_bubble_volume</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> nm^3.&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;System volume: </span><span class="si">{</span><span class="n">bubble</span><span class="o">.</span><span class="n">total_system_volume</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> nm^3.&quot;</span><span class="p">)</span>
+        <span class="n">bubble_percentage</span> <span class="o">=</span> <span class="mf">100.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">bubble</span><span class="o">.</span><span class="n">total_bubble_volume</span> <span class="o">/</span> <span class="n">bubble</span><span class="o">.</span><span class="n">total_system_volume</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Bubbles occupy </span><span class="si">{</span><span class="n">bubble_percentage</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> % of the system, by volume.&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="getting_started.html" class="btn btn-neutral float-left" title="Getting Started" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="user_guide.html" class="btn btn-neutral float-right" title="Burbuja User Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Abraham Muñiz Chicharro  and Lane Votapka. Project structure based on the Computational Molecular Science Python Cookiecutter version 1.11.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

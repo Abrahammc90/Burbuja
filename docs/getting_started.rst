@@ -33,7 +33,7 @@ Mamba installed, Download the Miniforge install script and run.
 
 .. code-block:: bash
 
-    curl -O https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh
+    curl -LO https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh
     bash Miniforge3-$(uname)-$(uname -m).sh
 
 

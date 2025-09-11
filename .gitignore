@@ -1,2 +1,5 @@
 bubble_final_version.code-workspace
 .pytest_cache/
+**/*.pyc
+**/__pycache__
+./build/

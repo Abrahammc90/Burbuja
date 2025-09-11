@@ -25,6 +25,7 @@ dependencies = [
     "numpy",
     "attrs",
     "mdtraj",
+    "pytest>7.2",
 ]
 
 # Update the urls once the hosting is set up.
@@ -34,7 +35,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
-  "pytest>=6.1.2",
+  "pytest>7.2",
 ]
 
 [tool.setuptools]

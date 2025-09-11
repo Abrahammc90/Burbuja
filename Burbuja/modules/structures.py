@@ -304,11 +304,12 @@ class Grid():
             # Force garbage collection for GPU memory
             if use_cupy:
                 cp.get_default_memory_pool().free_all_blocks()
+        del self.mass_array
 
     def generate_bubble_object(
             self,
             use_cupy: bool = False,
-            use_float32: bool = False
+            use_float32: bool = True
             ) -> "Bubble":
         """
         Generate a Bubble object from the grid densities data.
@@ -388,16 +389,16 @@ class Bubble():
     density_threshold: float = field(default=base.DEFAULT_DENSITY_THRESHOLD)
 
     def find(self,
-             xcells: int,
-             ycells: int,
-             zcells: int,
-             box_densities: np.ndarray,
-             grid_space_x: float,
-             grid_space_y: float,
-             grid_space_z: float,
-             use_cupy: bool = False,
-             use_float32: bool = False
-             ) -> None:
+         xcells: int,
+         ycells: int,
+         zcells: int,
+         box_densities: np.ndarray,
+         grid_space_x: float,
+         grid_space_y: float,
+         grid_space_z: float,
+         use_cupy: bool = False,
+         use_float32: bool = False
+         ) -> None:
         """
         Identify bubble regions where density is below the threshold.
 
@@ -418,94 +419,124 @@ class Bubble():
         Returns:
             None
         """
-        if use_cupy:
-            import cupy as cp
-            array_lib = cp
-            # Ensure densities are on GPU
-            if isinstance(box_densities, np.ndarray):
-                box_densities = cp.asarray(box_densities)
-        else:
-            array_lib = np
-            # Ensure densities are on CPU  
-            if hasattr(box_densities, 'get'):  # Check if it's a CuPy array
-                box_densities = box_densities.get()
-        
+        # if use_cupy:
+        #     import cupy as cp
+        #     array_lib = cp
+        #     # Ensure densities are on GPU
+        #     if isinstance(box_densities, np.ndarray):
+        #         box_densities = cp.asarray(box_densities)
+        # else:
+        array_lib = np
+        # Ensure densities are on CPU
+        if hasattr(box_densities, 'get'):  # Check if it's a CuPy array
+            box_densities = box_densities.get()
+
+        print(1)
         # Set precision for calculations
         float_dtype = np.float32 if use_float32 else np.float64
-        
+
+        print(2)
         # Reshape densities to 3D grid
         self.densities = box_densities.reshape((xcells, ycells, zcells))
-        
+
+        print(3)
         # Create bubble mask (vectorized operation)
         bubble_mask = box_densities < self.density_threshold
+
+        print(4)
         self.total_atoms = int(array_lib.sum(bubble_mask))
-        
+        del box_densities  # Free memory
+
         if self.total_atoms == 0:
             # No bubbles found
+            print(5)
             self.bubble_data = array_lib.zeros((xcells, ycells, zcells), dtype=bool)
             self.atoms = {}
             self.total_bubble_volume = 0.0
             return
-        
+
+        print(6)
         # Get indices of bubble cells (vectorized)
         bubble_indices = array_lib.where(bubble_mask)[0]
-        
+        print(6.5)
+
+        del bubble_mask  # Free memory
+
         # Convert 1D indices to 3D coordinates (vectorized)
         iz = bubble_indices % zcells
+        print(6.55)
         temp = bubble_indices // zcells
+        print(6.56)
+
+        del bubble_indices  # Free memory
+
         iy = temp % ycells
+        print(6.57)
         ix = temp // ycells
-        
+
+        print(6.6)
+
         # Calculate physical coordinates (vectorized) with controlled precision
-        if use_cupy:
-            # GPU calculations always use float32
-            x_coords = ix * grid_space_x + grid_space_x/2
-            y_coords = iy * grid_space_y + grid_space_y/2  
-            z_coords = iz * grid_space_z + grid_space_z/2
-        else:
-            # CPU calculations use specified precision
-            x_coords = (ix * float_dtype(grid_space_x) + float_dtype(grid_space_x)/2).astype(float_dtype)
-            y_coords = (iy * float_dtype(grid_space_y) + float_dtype(grid_space_y)/2).astype(float_dtype)
-            z_coords = (iz * float_dtype(grid_space_z) + float_dtype(grid_space_z)/2).astype(float_dtype)
-        
+        # if use_cupy:
+        #     # GPU calculations always use float32
+        #     x_coords = ix * grid_space_x + grid_space_x/2
+        #     y_coords = iy * grid_space_y + grid_space_y/2
+        #     z_coords = iz * grid_space_z + grid_space_z/2
+        # else:
+        # CPU calculations use specified precision
+        x_coords = (ix * float_dtype(grid_space_x) + float_dtype(grid_space_x) / 2).astype(float_dtype)
+        print(6.7)
+        y_coords = (iy * float_dtype(grid_space_y) + float_dtype(grid_space_y) / 2).astype(float_dtype)
+        print(6.8)
+        z_coords = (iz * float_dtype(grid_space_z) + float_dtype(grid_space_z) / 2).astype(float_dtype)
+
         # Create bubble_data array
+        print(7)
         self.bubble_data = array_lib.zeros((xcells, ycells, zcells), dtype=bool)
-        if use_cupy:
-            # Use advanced indexing for GPU
-            self.bubble_data[ix, iy, iz] = True
-            # Transfer coordinates to CPU for PDB writing
-            x_coords_cpu = cp.asnumpy(x_coords)
-            y_coords_cpu = cp.asnumpy(y_coords) 
-            z_coords_cpu = cp.asnumpy(z_coords)
-        else:
-            self.bubble_data[ix, iy, iz] = True
-            x_coords_cpu = x_coords
-            y_coords_cpu = y_coords
-            z_coords_cpu = z_coords
-        
+        # if use_cupy:
+        #     # Use advanced indexing for GPU
+        #     self.bubble_data[ix, iy, iz] = True
+        #     # Transfer coordinates to CPU for PDB writing
+        #     x_coords_cpu = cp.asnumpy(x_coords)
+        #     y_coords_cpu = cp.asnumpy(y_coords)
+        #     z_coords_cpu = cp.asnumpy(z_coords)
+        # else:
+        print(8)
+        self.bubble_data[ix, iy, iz] = True
+        print(9)
+        x_coords_cpu = x_coords
+        y_coords_cpu = y_coords
+        z_coords_cpu = z_coords
+        print(10)
+
         # Generate PDB atom records (this part stays on CPU since it's string formatting)
         self.atoms = {}
         for i in range(self.total_atoms):
             atom_id = i + 1
             residue_id = self.total_residues
             x, y, z = x_coords_cpu[i], y_coords_cpu[i], z_coords_cpu[i]
-            
+
             atom_pdb = "ATOM {:>6s}  BUB BUB  {:>4s}    {:>8.3f}{:>8.3f}{:>8.3f}  1.00  0.00\n".format(
                 str(atom_id), str(residue_id), x, y, z
             )
             self.atoms[atom_id] = atom_pdb
-        
+        print(11)
+
         # Calculate total bubble volume with controlled precision
         if use_float32:
+            print(12)
             volume_per_cell = float_dtype(grid_space_x) * float_dtype(grid_space_y) * float_dtype(grid_space_z)
+            print(13)
             self.total_bubble_volume = float(float_dtype(self.total_atoms) * volume_per_cell)
         else:
+            print(14)
             self.total_bubble_volume = self.total_atoms * grid_space_x * grid_space_y * grid_space_z
-        
+
         # Ensure final arrays are in expected format (CPU NumPy for compatibility)
-        if use_cupy:
-            self.densities = cp.asnumpy(self.densities)
-            self.bubble_data = cp.asnumpy(self.bubble_data)
+        # if use_cupy:
+        #     self.densities = cp.asnumpy(self.densities)
+        #     self.bubble_data = cp.asnumpy(self.bubble_data)
+
 
     def write_pdb(
             self,

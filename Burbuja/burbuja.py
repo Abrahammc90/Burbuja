@@ -24,7 +24,7 @@ def burbuja(
         structure: str | mdtraj.Trajectory,
         grid_resolution: float = 0.1,
         use_cupy: bool = False,
-        use_float32: bool = False,
+        use_float32: bool = True,
         density_threshold: float = base.DEFAULT_DENSITY_THRESHOLD,
         neighbor_cells: int = base.DEFAULT_NEIGHBOR_CELLS
         ) -> typing.List[structures.Bubble]:
@@ -110,7 +110,7 @@ def burbuja(
         box_grid.initialize_cells(use_cupy=use_cupy, use_float32=use_float32)
         box_grid.calculate_cell_masses(coordinates, masses, n_atoms, frame_id, use_cupy=use_cupy)
         box_grid.calculate_densities(unitcell_vectors, frame_id=frame_id, use_cupy=use_cupy)
-        bubble = box_grid.generate_bubble_object(use_cupy=use_cupy, use_float32=True)
+        bubble = box_grid.generate_bubble_object(use_cupy=use_cupy, use_float32=use_float32)
         bubbles.append(bubble)
     return bubbles
 
@@ -118,6 +118,7 @@ def has_bubble(
         structure: mdtraj.Trajectory,
         grid_resolution: float = 0.1,
         use_cupy: bool = False,
+        use_float32: bool = True,
         dx_filename_base: str | None = None,
         density_threshold: float = base.DEFAULT_DENSITY_THRESHOLD,
         minimum_bubble_fraction: float = base.DEFAULT_MINIMUM_BUBBLE_FRACTION,
@@ -162,6 +163,7 @@ def has_bubble(
         >>> print("Contains bubble?", contains_bubble)
     """
     bubbles = burbuja(structure, grid_resolution, use_cupy=use_cupy,
+                      use_float32=use_float32,
                       density_threshold=density_threshold,
                       neighbor_cells=neighbor_cells)
     found_bubble = False
@@ -212,6 +214,8 @@ def main():
                    help="Minimum fraction of low-density cells to count as a bubble.")
     argparser.add_argument("-n", "--neighbor-cells", type=int, default=1,
                    help="Connectivity radius (in grid cells) for clustering.")
+    argparser.add_argument("--float_type", choices=["float32", "float64"], default="float32",
+                   help="Precision for calculations (float32 is faster, float64 is more precise).")
     args = argparser.parse_args()
     args = vars(args)
     structure_file = pathlib.Path(args["structure_file"])
@@ -222,6 +226,7 @@ def main():
     density_threshold = args["density_threshold"]
     minimum_bubble_fraction = args["minimum_bubble_fraction"]
     neighbor_cells = args["neighbor_cells"]
+    use_float32 = args["float_type"] == "float32"
 
     if topology_file is None:
         structure = str(structure_file)
@@ -235,7 +240,7 @@ def main():
 
     time_start = time.time()
     has_bubble_result = has_bubble(structure, grid_resolution, use_cupy=use_cupy,
-                                    dx_filename_base=dx_filename_base, 
+                                    use_float32=use_float32, dx_filename_base=dx_filename_base, 
                                     density_threshold=density_threshold,
                                     minimum_bubble_fraction=minimum_bubble_fraction,
                                     neighbor_cells=neighbor_cells)

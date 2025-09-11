@@ -1,0 +1,7 @@
+numpy
+attrs
+mdtraj
+pytest>7.2
+
+[test]
+pytest>7.2
