@@ -178,60 +178,72 @@ def has_bubble(
     return found_bubble
 
 def main():
-    def main():
-        """
-        Command-line interface for Burbuja bubble detection.
+    argparser = argparse.ArgumentParser(
+        description="Automatically detect bubbles and vapor pockets and local "
+            "voids within molecular dynamics simulation structures making use "
+            "of explicit solvent.")
+    argparser.add_argument(
+        "structure_file", metavar="STRUCTURE_FILE", type=str, 
+        help="Path to the input structure or trajectory file - most likely a "
+        "PDB file. If a PDB file is provided, a special procedure is used to "
+        "process the atom information that saves time and memory. However, if "
+        "a different file format is provided, then one must also provide the "
+        "topology file (--topology argument), and MDTraj will be used to access "
+        "molecular structure information. For large atom counts, it is recommended "
+        "for one to use a PDB format, as MDTraj can have trouble reading files "
+        "with large numbers of atoms.")
+    argparser.add_argument(
+        "-t", "--topology", dest="topology",
+        metavar="TOPOLOGY", type=str, default=None,
+        help="Path to the topology file used by mdtraj to characterize atoms. "
+        "If provided, MDTraj will be used to read the structure and "
+        "topology files. If this argument is not provided, the structure file "
+        "is assumed to be in PDB format, and a special procedure will be used "
+        "to efficiently read the atom information needed for bubble detection. "
+        "Default: None.")
+    argparser.add_argument(
+        "-r", "--grid_resolution", dest="grid_resolution",
+        metavar="GRID_RESOLUTION", type=float, default=0.1,
+        help="Grid resolution in nanometers for the bubble detection. "
+        "Default: 0.1 nm.")
+    argparser.add_argument(
+        "-c", "--use_cupy", dest="use_cupy", default=False,
+        help="Enable CuPy for GPU acceleration. Default: False.",
+        action="store_true")
+    argparser.add_argument(
+        "-d", "--detailed_output", dest="detailed_output", default=False,
+        help="Enable detailed output, which includes bubble volumes per frame, "
+        "and also DX files for bubble visualization. Default: False.",
+        action="store_true")
+    args = argparser.parse_args()
+    args = vars(args)
+    structure_file = pathlib.Path(args["structure_file"])
+    topology_file = pathlib.Path(args["topology"]) if args["topology"] else None
+    grid_resolution = args["grid_resolution"]
+    use_cupy = args["use_cupy"]
+    detailed_output = args["detailed_output"]
 
-        Parses command-line arguments, loads the structure and topology as
-        needed, and runs bubble detection. Prints results and optionally
-        writes DX files for visualization.
-
-        Usage:
-            python -m Burbuja.burbuja STRUCTURE_FILE [options]
-
-        For a full list of options, see the user guide or run with
-        -h/--help.
-        """
-        argparser = argparse.ArgumentParser(
-            description="Automatically detect bubbles and vapor pockets and local "
-                "voids within molecular dynamics simulation structures making use "
-                "of explicit solvent.")
-        # ...existing code...
-        args = argparser.parse_args()
-        args = vars(args)
-        structure_file = pathlib.Path(args["structure_file"])
-        topology_file = pathlib.Path(args["topology"]) if args["topology"] else None
-        grid_resolution = args["grid_resolution"]
-        use_cupy = args["use_cupy"]
-        detailed_output = args["detailed_output"]
-        density_threshold = args["density_threshold"]
-        minimum_bubble_fraction = args["minimum_bubble_fraction"]
-        neighbor_cells = args["neighbor_cells"]
-
-        if topology_file is None:
-            structure = str(structure_file)
-        else:
-            structure = mdtraj.load(structure_file, top=topology_file)
-        if detailed_output:
-            structure_file_base = os.path.splitext(structure_file.name)[0]
-            dx_filename_base = f"{structure_file_base}_bubble"
-        else:
-            dx_filename_base = None
+    if topology_file is None:
+        structure = str(structure_file)
+    else:
+        structure = mdtraj.load(structure_file, top=topology_file)
+    if detailed_output:
+        structure_file_base = os.path.splitext(structure_file.name)[0]
+        dx_filename_base = f"{structure_file_base}_bubble"
+    else:
+        dx_filename_base = None
     
-        time_start = time.time()
-        has_bubble_result = has_bubble(structure, grid_resolution, use_cupy=use_cupy,
-                                       dx_filename_base=dx_filename_base, 
-                                       density_threshold=density_threshold,
-                                       minimum_bubble_fraction=minimum_bubble_fraction,
-                                       neighbor_cells=neighbor_cells)
-        time_end = time.time()
-        elapsed_time = time_end - time_start
-        print(f"Bubble detection completed in {elapsed_time:.2f} seconds.")
+    time_start = time.time()
+    has_bubble_result = has_bubble(structure, grid_resolution, use_cupy=use_cupy,
+                                   dx_filename_base=dx_filename_base)
+    time_end = time.time()
+    elapsed_time = time_end - time_start
+    print(f"Bubble detection completed in {elapsed_time:.2f} seconds.")
     
-        if has_bubble_result:
-            print("The structure has a bubble.")
-        else:
-            print("No bubble detected in structure.")
+    if has_bubble_result:
+        print("The structure has a bubble.")
+    else:
+        print("No bubble detected in structure.")
 
-    if __name__ == "__main__":
-        main()
+if __name__ == "__main__":
+    main()
