@@ -22,7 +22,8 @@ BIG_FILE_CHUNK_SIZE = 100000  # Number of atoms to process in each chunk for big
 
 def burbuja(
         structure: str | mdtraj.Trajectory,
-        grid_resolution: float = 0.1,
+        coarse_grid_resolution: float = 1.0,
+        fine_grid_resolution: float = 0.1,
         use_cupy: bool = False
         ) -> typing.List[structures.Bubble]:
     """
@@ -67,25 +68,31 @@ def burbuja(
     for frame_id in range(n_frames):
         lengths = base.reshape_atoms_to_orthorombic(coordinates, unitcell_vectors, n_atoms, frame_id)
         box_grid = structures.Grid(
-            approx_grid_space=grid_resolution,
+            approx_coarse_grid_space=coarse_grid_resolution,
+            approx_fine_grid_space=fine_grid_resolution,
             boundaries=lengths)
-        box_grid.initialize_cells(use_cupy=use_cupy)
-        box_grid.calculate_cell_masses(coordinates, masses, n_atoms, frame_id, use_cupy=use_cupy)
-        box_grid.calculate_densities(unitcell_vectors, frame_id=frame_id, use_cupy=use_cupy)
+        box_grid.initialize_coarse_cells(use_cupy=use_cupy)
+        box_grid.calculate_coarse_cell_masses(coordinates, masses, n_atoms, frame_id, use_cupy=use_cupy, store_atomic_information=True)
+        box_grid.calculate_coarse_cell_densities_noneighboring(use_cupy=use_cupy)
+        box_grid.initialize_fine_cells_from_coarse_cells(use_cupy=use_cupy)
+        box_grid.calculate_fine_cell_masses_from_coarse_cells(
+            lengths, use_cupy=use_cupy)
+        box_grid.calculate_fine_cell_densities_neighboring(use_cupy=use_cupy)
         bubble = box_grid.generate_bubble_object()
         bubbles.append(bubble)
     return bubbles
 
 def has_bubble(
         structure: mdtraj.Trajectory,
-        grid_resolution: float = 0.1,
+        coarse_grid_resolution: float = 1.0,
+        fine_grid_resolution: float = 0.1,
         use_cupy: bool = False,
         dx_filename_base: str | None = None
     ) -> bool:
     """
     Check if the structure has a bubble based on density threshold.
     """
-    bubbles = burbuja(structure, grid_resolution, use_cupy=use_cupy)
+    bubbles = burbuja(structure, coarse_grid_resolution, fine_grid_resolution, use_cupy=use_cupy)
     found_bubble = False
     
     for i, bubble in enumerate(bubbles):
@@ -127,9 +134,14 @@ def main():
         "to efficiently read the atom information needed for bubble detection. "
         "Default: None.")
     argparser.add_argument(
-        "-r", "--grid_resolution", dest="grid_resolution",
-        metavar="GRID_RESOLUTION", type=float, default=0.1,
-        help="Grid resolution in nanometers for the bubble detection. "
+        "-cr", "--coarse_grid_resolution", dest="coarse_grid_resolution",
+        metavar="COARSE_GRID_RESOLUTION", type=float, default=1.0,
+        help="Coarse grid resolution in nanometers for coarse cell generation. "
+        "Default: 1.0 nm.")
+    argparser.add_argument(
+        "-fr", "--fine_grid_resolution", dest="fine_grid_resolution",
+        metavar="FINE_GRID_RESOLUTION", type=float, default=0.1,
+        help="Coarse grid resolution in nanometers for fine cell generation. "
         "Default: 0.1 nm.")
     argparser.add_argument(
         "-c", "--use_cupy", dest="use_cupy", default=False,
@@ -144,7 +156,8 @@ def main():
     args = vars(args)
     structure_file = pathlib.Path(args["structure_file"])
     topology_file = pathlib.Path(args["topology"]) if args["topology"] else None
-    grid_resolution = args["grid_resolution"]
+    coarse_grid_resolution = args["coarse_grid_resolution"]
+    fine_grid_resolution = args["fine_grid_resolution"]
     use_cupy = args["use_cupy"]
     detailed_output = args["detailed_output"]
 
@@ -159,8 +172,8 @@ def main():
         dx_filename_base = None
     
     time_start = time.time()
-    has_bubble_result = has_bubble(structure, grid_resolution, use_cupy=use_cupy,
-                                   dx_filename_base=dx_filename_base)
+    has_bubble_result = has_bubble(structure, coarse_grid_resolution, fine_grid_resolution, 
+                                   use_cupy=use_cupy, dx_filename_base=dx_filename_base)
     time_end = time.time()
     elapsed_time = time_end - time_start
     print(f"Bubble detection completed in {elapsed_time:.2f} seconds.")

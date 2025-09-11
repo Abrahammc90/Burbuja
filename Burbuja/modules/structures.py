@@ -14,6 +14,7 @@ from Burbuja.modules import base
 
 @define
 class Grid():
+    
     """
     A grid in in the shape of the wrapped water box (rectangular prism), that is
     constructed to represent the mass and density of the system at various
@@ -21,18 +22,34 @@ class Grid():
     can then be used to find bubbles in the system when the density is below
     a certain threshold.
     """
-    approx_grid_space: float = field(default=0.1)
+    approx_coarse_grid_space: float = field(default=1.0)
+    approx_fine_grid_space: float = field(default=0.1)
     boundaries: np.ndarray = field(factory=lambda: np.zeros(3))
-    grid_space_x: float = field(default=0.1)
-    grid_space_y: float = field(default=0.1)
-    grid_space_z: float = field(default=0.1)
-    xcells: int = field(default=0)
-    ycells: int = field(default=0)
-    zcells: int = field(default=0)
-    mass_array: typing.Any = field(factory=lambda: np.zeros(0))
-    densities: typing.Any = field(factory=lambda: np.zeros(0))
+    grid_coarse_space_x: float = field(default=1.0)
+    grid_coarse_space_y: float = field(default=1.0)
+    grid_coarse_space_z: float = field(default=1.0)
+    grid_fine_space_x: float = field(default=0.1)
+    grid_fine_space_y: float = field(default=0.1)
+    grid_fine_space_z: float = field(default=0.1)
+    coarse_xcells: int = field(default=0)
+    coarse_ycells: int = field(default=0)
+    coarse_zcells: int = field(default=0)
+    fine_xcells: int = field(default=0)
+    fine_ycells: int = field(default=0)
+    fine_zcells: int = field(default=0)
+    coarse_mass_array: typing.Any = field(factory=lambda: np.zeros(0))
+    coarse_densities: typing.Any = field(factory=lambda: np.zeros(0))
+    fine_mass_array: typing.Any = field(factory=lambda: np.zeros(0))
+    fine_densities: typing.Any = field(factory=lambda: np.zeros(0))
+    atom_coords: typing.Any = field(factory=lambda: np.zeros(0))
+    atom_masses: typing.Any = field(factory=lambda: np.zeros(0))
+    atoms_stored_per_cell: typing.Any = field(factory=lambda: np.zeros(0))
+    coarse_cell_indexes: typing.List[int] = field(factory=list)
     
-    def initialize_cells(
+    fine_coordinates_array: typing.Any = field(factory=lambda: np.zeros(0))
+    flat_indices: typing.Any = field(factory=lambda: np.zeros(0))
+    
+    def initialize_coarse_cells(
             self, 
             use_cupy=False,
             ) -> None:
@@ -45,27 +62,70 @@ class Grid():
         1D arrays (flattened 3D values).
         """
         L_x, L_y, L_z = self.boundaries[:]
-        self.xcells = int((L_x + self.approx_grid_space) / self.approx_grid_space)
-        self.ycells = int((L_y + self.approx_grid_space) / self.approx_grid_space)
-        self.zcells = int((L_z + self.approx_grid_space) / self.approx_grid_space)
+        self.coarse_xcells = int(round(L_x / self.approx_coarse_grid_space))
+        self.coarse_ycells = int(round(L_y / self.approx_coarse_grid_space))
+        self.coarse_zcells = int(round(L_z / self.approx_coarse_grid_space))
+        
         # Now choose the actual grid space based on grid lengths and number of cells
         # in each direction
-        self.grid_space_x = L_x / (self.xcells - 1)
-        self.grid_space_y = L_y / (self.ycells - 1)
-        self.grid_space_z = L_z / (self.zcells - 1)
-        total_coordinates = self.xcells * self.ycells * self.zcells
+        self.grid_coarse_space_x = L_x / self.coarse_xcells
+        self.grid_coarse_space_y = L_y / self.coarse_ycells
+        self.grid_coarse_space_z = L_z / self.coarse_zcells
+        total_coordinates = self.coarse_xcells * self.coarse_ycells * self.coarse_zcells
 
 
         if use_cupy:
             import cupy as cp
-            self.mass_array = cp.zeros(total_coordinates, dtype=cp.float32)
-            self.densities = cp.zeros(total_coordinates, dtype=cp.float32)
+            self.coarse_mass_array = cp.zeros(total_coordinates, dtype=cp.float32)
+            self.coarse_densities = cp.zeros(total_coordinates, dtype=cp.float32)
 
         else:
-            self.mass_array = np.zeros(total_coordinates)
-            self.densities = np.zeros(total_coordinates)
+            self.coarse_mass_array = np.zeros(total_coordinates)
+            self.coarse_densities = np.zeros(total_coordinates)
 
         return
+    
+
+    def initialize_fine_cells_from_coarse_cells(
+            self,
+            use_cupy=False,
+            ) -> None:
+        """
+        Assign the number of cells in each direction based on the
+        boundaries of the coarse cells and the approximate grid space.
+        The grid space is then calculated based on the number of cells
+        and the boundaries of the box.
+        The mass_array and densities are initialized to zero - and are
+        1D arrays (flattened 3D values).
+        """
+
+        L_x, L_y, L_z = self.grid_coarse_space_x, self.grid_coarse_space_y, self.grid_coarse_space_z
+        self.fine_xcells = int(round(L_x / self.approx_fine_grid_space))
+        self.fine_ycells = int(round(L_y / self.approx_fine_grid_space))
+        self.fine_zcells = int(round(L_z / self.approx_fine_grid_space))
+        # Now choose the actual grid space based on grid lengths and number of cells
+        # in each direction
+        self.grid_fine_space_x = L_x / (self.fine_xcells)
+        self.grid_fine_space_y = L_y / (self.fine_ycells)
+        self.grid_fine_space_z = L_z / (self.fine_zcells)
+
+        block_size = self.fine_xcells * self.fine_ycells * self.fine_zcells
+        superblock_size = block_size * 27
+
+        # If all coarse_cells have the same number of masses, allocate 2D arrays
+        if not self.coarse_cell_indexes:
+            raise ValueError("coarse_cells must not be empty")
+        num_cells = len(self.coarse_cell_indexes)
+        if use_cupy:
+            import cupy as cp
+            self.fine_mass_array = cp.zeros((num_cells, superblock_size), dtype=cp.float32)
+            self.fine_coordinates_array = cp.zeros((num_cells, superblock_size, 3), dtype=cp.float32)
+            self.fine_densities = cp.zeros((num_cells, block_size), dtype=cp.float32)
+        else:
+            self.fine_mass_array = np.zeros((num_cells, superblock_size), dtype=np.float32)
+            self.fine_coordinates_array = np.zeros((num_cells, superblock_size, 3), dtype=np.float32)
+            self.fine_densities = np.zeros((num_cells, block_size), dtype=np.float32)
+
 
 
     def apply_boundaries_to_protein(
@@ -98,15 +158,156 @@ class Grid():
                     structure.xyz[i,j,2] += L_z
         return
 
-    def calculate_cell_masses(
-            self, 
+    def calculate_coarse_cell_masses(
+            self,
             coordinates: np.ndarray,
             mass_list: list,
             n_atoms: int,
             frame_id: int = 0,
             chunk_size: int = 5000,
             use_cupy: bool = False,
-            store_atomic_information: bool = False
+            store_atomic_information: bool = True
+        ) -> None:
+        """
+        Calculate the mass contained within each cell of the grid, optionally storing atomic info.
+        Uses CPU (NumPy) or GPU (CuPy + RawKernel) based on use_cupy.
+        """
+        # Coarse grid dimensions and total cells
+        xcells, ycells, zcells = self.coarse_xcells, self.coarse_ycells, self.coarse_zcells
+        n_cells = xcells * ycells * zcells
+        
+        # Estimate maximum atoms per coarse cell (upper bound)
+        atoms_per_cell_allocated = int(
+            200 * self.grid_coarse_space_x *
+            self.grid_coarse_space_y * self.grid_coarse_space_z
+        ) * 1000
+
+        if use_cupy:
+            import cupy as cp
+            # Allocate GPU arrays for coarse mass and, if needed, atomic details
+            self.coarse_mass_array = cp.zeros(n_cells, dtype=cp.float32)
+            if store_atomic_information:
+                self.atom_coords = cp.zeros(
+                    (n_cells, atoms_per_cell_allocated, 3), dtype=cp.float32
+                )
+                self.atom_masses = cp.zeros(
+                    (n_cells, atoms_per_cell_allocated), dtype=cp.float32
+                )
+                self.atoms_stored_per_cell = cp.zeros(n_cells, dtype=cp.int32)
+
+            # Define CUDA kernel for parallel atom insertion
+            insert_atoms_kernel = cp.RawKernel(r'''
+            extern "C" __global__
+            void insert_atoms(
+                const float* coords, const float* masses,
+                const int* ids, int* insert_ptr,
+                float* atom_coords, float* atom_masses,
+                const int max_atoms, const int n_atoms
+            ){
+                int i = blockDim.x * blockIdx.x + threadIdx.x;
+                if (i >= n_atoms) return;
+
+                int cell_id = ids[i];
+                int idx = atomicAdd(&insert_ptr[cell_id], 1);
+                if (idx >= max_atoms) return;
+
+                int base = (cell_id * max_atoms + idx) * 3;
+                atom_coords[base + 0] = coords[3*i + 0];
+                atom_coords[base + 1] = coords[3*i + 1];
+                atom_coords[base + 2] = coords[3*i + 2];
+                atom_masses[cell_id * max_atoms + idx] = masses[i];
+            }
+            ''', 'insert_atoms')
+        else:
+            # Allocate CPU arrays for coarse mass and, if needed, atomic details
+            self.coarse_mass_array = np.zeros(n_cells, dtype=np.float32)
+            if store_atomic_information:
+                self.atom_coords = np.zeros(
+                    (n_cells, atoms_per_cell_allocated, 3), dtype=np.float32
+                )
+                self.atom_masses = np.zeros(
+                    (n_cells, atoms_per_cell_allocated), dtype=np.float32
+                )
+                self.atoms_stored_per_cell = np.zeros(n_cells, dtype=np.int32)
+
+        # Process atoms in batches to limit memory usage
+        for start in range(0, n_atoms, chunk_size):
+            end = min(start + chunk_size, n_atoms)
+
+            # Extract and cast coordinates and masses
+            coords_batch = coordinates[frame_id, start:end, :].astype(np.float32)
+            masses_batch = np.array(mass_list[start:end], dtype=np.float32)
+
+            if use_cupy:
+                #cp = __import__('cupy')
+                coords = cp.asarray(coords_batch)
+                masses = cp.asarray(masses_batch)
+                mass_array = self.coarse_mass_array
+
+                # build a 1×3 array of the cell‐spacings
+                spacings = cp.array([
+                    self.grid_coarse_space_x,
+                    self.grid_coarse_space_y,
+                    self.grid_coarse_space_z
+                ], dtype=cp.float32)
+                # coords is (n,3), spacings is (3,) → broadcast to (n,3)
+                grid_coords = cp.floor(coords / spacings).astype(cp.int32)
+
+            else:
+                coords = coords_batch
+                masses = masses_batch
+                mass_array = self.coarse_mass_array
+
+                # build a 1×3 array of the cell‐spacings
+                spacings = np.array([
+                    self.grid_coarse_space_x,
+                    self.grid_coarse_space_y,
+                    self.grid_coarse_space_z
+                ], dtype=np.float32)
+                # coords is (n,3), spacings is (3,) → broadcast to (n,3)
+                grid_coords = np.floor(coords / spacings).astype(np.int32)
+
+            xi, yi, zi = grid_coords[:, 0], grid_coords[:, 1], grid_coords[:, 2]
+            ids = xi * (ycells * zcells) + yi * zcells + zi
+
+            if use_cupy:
+                # Accumulate mass per cell
+                cp.add.at(mass_array, ids, masses)
+                # Store atomic details if requested
+                if store_atomic_information:
+                    # Launch CUDA kernel for parallel insertion on GPU
+                    n_chunk = ids.size
+                    threads_per_block = 256
+                    blocks = (n_chunk + threads_per_block - 1) // threads_per_block
+
+                    insert_atoms_kernel(
+                        (blocks,), (threads_per_block,),
+                        (
+                            coords.ravel(), masses, ids,
+                            self.atoms_stored_per_cell,
+                            self.atom_coords.ravel(), self.atom_masses.ravel(),
+                            atoms_per_cell_allocated, n_chunk
+                        )
+                    )
+            else:
+                # Accumulate mass per cell
+                np.add.at(mass_array, ids, masses)
+                # Store atomic details if requested
+                if store_atomic_information:
+                    # Fallback to Python loop on CPU
+                    for i, cell_id in enumerate(ids):
+                        idx = self.atoms_stored_per_cell[cell_id]
+                        self.atom_coords[cell_id, idx, :] = coords[i]
+                        self.atom_masses[cell_id, idx] = masses[i]
+                        self.atoms_stored_per_cell[cell_id] += 1
+        self.atom_coords = self.atom_coords[:, :np.max(self.atoms_stored_per_cell), :]
+        self.atom_masses = self.atom_masses[:, :np.max(self.atoms_stored_per_cell)]
+
+        
+    def calculate_fine_cell_masses_from_coarse_cells(
+            self,
+            box_lengths: np.ndarray,
+            use_cupy: bool = False,
             ) -> None:
         """
         Calculate the mass contained within each cell of the grid.
@@ -114,87 +315,131 @@ class Grid():
         if use_cupy:
             import cupy as cp
 
-        xcells, ycells, zcells = self.xcells, self.ycells, self.zcells
-        for start in range(0, n_atoms, chunk_size):
-            end = min(start + chunk_size, n_atoms)
-            coords_batch = coordinates[frame_id, start:end, :]
-            mass_slice = mass_list[start:end]
-                
-            masses_batch = np.array(mass_slice, dtype=np.float32)
-            if use_cupy:
-                # Transfer to GPU
-                coords = cp.asarray(coords_batch, dtype=cp.float32)
-                masses = cp.asarray(masses_batch, dtype=cp.float32)
-            else:
-                coords = coords_batch.astype(np.float32)
-                masses = masses_batch.astype(np.float32)
+        
 
-            # Grid coordinates per atom
-            if use_cupy:
-                grid_coords = cp.zeros((end - start, 3), dtype=cp.int32)
-                grid_coords[:, 0] = cp.floor(coords[:,0] / self.grid_space_x).astype(cp.int32)
-                grid_coords[:, 1] = cp.floor(coords[:,1] / self.grid_space_y).astype(cp.int32)
-                grid_coords[:, 2] = cp.floor(coords[:,2] / self.grid_space_z).astype(cp.int32)
+        #xcells, ycells, zcells = self.fine_xcells, self.fine_ycells, self.fine_zcells
 
-            else:
-                grid_coords = np.zeros((end - start, 3), dtype=np.int32)
-                grid_coords[:, 0] = np.floor(coords[:,0] / self.grid_space_x).astype(np.int32)
-                grid_coords[:, 1] = np.floor(coords[:,1] / self.grid_space_y).astype(np.int32)
-                grid_coords[:, 2] = np.floor(coords[:,2] / self.grid_space_z).astype(np.int32)
-                
-            xi, yi, zi = grid_coords[:, 0], grid_coords[:, 1], grid_coords[:, 2]
+        #n_cells = xcells * ycells * zcells
+
+        # For each coarse cell index, store neighbor masses in a superblock of fine cells (33x33x33)
+        grid_shape = (self.coarse_xcells, self.coarse_ycells, self.coarse_zcells)
+        xcells, ycells, zcells = grid_shape
+        fine_xcells, fine_ycells, fine_zcells = self.fine_xcells, self.fine_ycells, self.fine_zcells
+        superblock_x, superblock_y, superblock_z = 3 * fine_xcells, 3 * fine_ycells, 3 * fine_zcells
+        block_size = superblock_x * superblock_y * superblock_z
+        neighbor_range = np.array([-1, 0, 1])
+        dx, dy, dz = np.meshgrid(neighbor_range, neighbor_range, neighbor_range, indexing='ij')
+        neighbor_offsets = np.stack([dx.ravel(), dy.ravel(), dz.ravel()], axis=1)
+        # For each coarse cell index
+        coarse_indices = np.array(self.coarse_cell_indexes)
+        #print(coarse_indices)
+        ix = coarse_indices // (ycells * zcells)
+        iy = (coarse_indices % (ycells * zcells)) // zcells
+        iz = coarse_indices % zcells
+        
+        for row, (iix, iiy, iiz) in enumerate(zip(ix, iy, iz)):
+            # Find the min corner of the 3x3x3 coarse neighborhood
+            min_cx = (iix - 1) % xcells
+            min_cy = (iiy - 1) % ycells
+            min_cz = (iiz - 1) % zcells
+            # Get all 27 coarse cell indices in the neighborhood
+            n_cx = (iix + neighbor_offsets[:, 0]) % xcells
+            n_cy = (iiy + neighbor_offsets[:, 1]) % ycells
+            n_cz = (iiz + neighbor_offsets[:, 2]) % zcells
+            neighbor_idxs = n_cx * ycells * zcells + n_cy * zcells + n_cz
+            all_idxs = np.unique(neighbor_idxs)
+            # Collect all atom coords and masses in the neighborhood
+            coarse_cell_atom_coords = self.atom_coords[all_idxs]
+            coarse_cell_atom_masses = self.atom_masses[all_idxs]
+            #coarse_cell_atom_coords = [self.atom_coords[i] for i in all_idxs]
+            #coarse_cell_atom_masses = [self.atom_masses[i] for i in all_idxs]
+            coords = np.concatenate(coarse_cell_atom_coords, axis=0)
+            masses = np.concatenate(coarse_cell_atom_masses, axis=0)
+            # Compute fine cell indices relative to superblock origin
+            superblock_origin = np.array([min_cx * self.grid_coarse_space_x,
+                                         min_cy * self.grid_coarse_space_y,
+                                         min_cz * self.grid_coarse_space_z])
+            rel_coords = coords - superblock_origin
+            # Wrap coordinates into the superblock
+            rel_coords = rel_coords % box_lengths
+            # Bin into fine cells
+            fx = np.floor(rel_coords[:, 0] / self.grid_fine_space_x).astype(int)
+            fy = np.floor(rel_coords[:, 1] / self.grid_fine_space_y).astype(int)
+            fz = np.floor(rel_coords[:, 2] / self.grid_fine_space_z).astype(int)
+
+            # Ensure indices are within superblock bounds
+            #print(fx)
+            #exit()
+            valid = (fx >= 0) & (fx < superblock_x) & (fy >= 0) & (fy < superblock_y) & (fz >= 0) & (fz < superblock_z)
+            fx, fy, fz, masses, coords = fx[valid], fy[valid], fz[valid], masses[valid], coords[valid]
             
-            all_indices_cpu = np.ones(end - start, dtype=bool)  # Treat all atoms the same for now
-            if use_cupy:
-                all_indices = cp.asarray(all_indices_cpu, dtype=cp.bool_)
-            else:
-                all_indices = all_indices_cpu
-            if True:
-                xi_w = xi[all_indices] #% xcells
-                yi_w = yi[all_indices] #% ycells
-                zi_w = zi[all_indices] #% zcells
-                mw = masses[all_indices]
-                # An assertion error here indicates a failure in box wrapping.
-                assert (xi_w >= 0).all(), "xi_w contains negative indices"
-                assert (yi_w >= 0).all(), "yi_w contains negative indices"
-                assert (zi_w >= 0).all(), "zi_w contains negative indices"
-                assert (xi_w < xcells).all(), "xi_w contains indices >= xcells"
-                assert (yi_w < ycells).all(), "yi_w contains indices >= ycells"
-                assert (zi_w < zcells).all(), "zi_w contains indices >= zcells"
+            fine_ids = fx * superblock_y * superblock_z + fy * superblock_z + fz
             
-                ids = xi_w * ycells * zcells + yi_w * zcells + zi_w
-                if use_cupy:
-                    cp.add.at(self.mass_array, ids, mw)
-                else:
-                    np.add.at(self.mass_array, ids, mw)
-
+            if use_cupy:
+                import cupy as cp
+                cp.add.at(self.fine_mass_array[row, :], fine_ids, masses)
+                cp.add.at(self.fine_coordinates_array[row, :], fine_ids, coords)
+            else:
+                np.add.at(self.fine_mass_array[row, :], fine_ids, masses)
+                np.add.at(self.fine_coordinates_array[row, :], fine_ids, coords)
+        
         return
 
-    def calculate_densities(
-            self, 
-            unitcell_vectors,
-            frame_id: int = 0,
-            chunk_size: int = 1000, 
+
+    def calculate_coarse_cell_densities_noneighboring(
+            self,
+            use_cupy: bool = False
+            ) -> None:
+        """
+        Calculate the densities in each cell of the grid without considering neighboring cells.
+        Each cell's density is simply its mass divided by its own volume.
+        """
+        N = self.coarse_mass_array.size
+        cell_volume = self.grid_coarse_space_x * self.grid_coarse_space_y * self.grid_coarse_space_z * 1000.0  # Convert nm^3 to A^3
+        densities = self.coarse_mass_array / cell_volume * 1.66 # Convert amu/A^3 to g/ml using 1.66 factor
+        self.coarse_densities = densities
+        # Find indices of cells with density < 0.7
+        if use_cupy:
+            import cupy as cp
+            used_indices = cp.where(densities < 0.7)[0]
+        else:
+            used_indices = np.where(densities < 0.7)[0]
+        num_cells_low_density = used_indices.shape[0]
+        self.coarse_cell_indexes[:] = used_indices
+        self.coarse_cell_indexes = self.coarse_cell_indexes[:num_cells_low_density]
+        return
+
+    def calculate_fine_cell_densities_neighboring(
+            self,
             use_cupy: bool = False
             ) -> None:
         """
         Calculate the densities in each cell of the grid, optionally using CuPy.
-        Note that the densities
+        Note that the densities are calculated by considering neighboring cells.
         """
         if use_cupy:
             import cupy as cp
         
-        grid_space_mean = np.mean([self.grid_space_x, self.grid_space_y, self.grid_space_z])    
+        # Now choose the actual grid space based on grid lengths and number of cells in each direction
+        grid_space_mean = np.mean([self.grid_fine_space_x, self.grid_fine_space_y, self.grid_fine_space_z])
         n_cells_to_spread = int(base.TOTAL_CELLS * round(0.1 / grid_space_mean))
-        
-        xcells, ycells, zcells = self.xcells, self.ycells, self.zcells
-        grid_shape = (xcells, ycells, zcells)
-        N = xcells * ycells * zcells
 
-        mass_grid = self.mass_array.reshape(grid_shape)
+        xcells, ycells, zcells = self.fine_xcells, self.fine_ycells, self.fine_zcells
+        
+        # Total fine grid size
+        super_xcells = 3 * xcells
+        super_ycells = 3 * ycells
+        super_zcells = 3 * zcells
+
+        # Start of central coarse cell (1,1,1) in fine grid
+        fx_start = 1 * xcells
+        fy_start = 1 * ycells
+        fz_start = 1 * zcells
+
+        
 
         if use_cupy:
-            self.densities = cp.zeros(N, dtype=cp.float32)
+            #self.fine_densities = cp.zeros(block_size, dtype=cp.float32).reshape(self.fine_mass_array)
             # Neighbors
             neighbor_range = cp.arange(-n_cells_to_spread, n_cells_to_spread + 1)
             dx, dy, dz = cp.meshgrid(neighbor_range, neighbor_range, neighbor_range, indexing='ij')
@@ -204,81 +449,137 @@ class Grid():
             neighbor_offsets = neighbor_offsets_box[neighbor_offsets_within_dist]
             M = neighbor_offsets.shape[0]
 
-            # Coordinates to integers
-            x = cp.arange(xcells)
-            y = cp.arange(ycells)
-            z = cp.arange(zcells)
+             # Coordinates to integers
+            x = cp.arange(super_xcells)
+            y = cp.arange(super_ycells)
+            z = cp.arange(super_zcells)
             ix, iy, iz = cp.meshgrid(x, y, z, indexing='ij')
             coords_all = cp.stack([ix.ravel(), iy.ravel(), iz.ravel()], axis=1)
-        else:
-            self.densities = np.zeros(N)
 
+            # Fine indices in each axis for the central coarse cell
+            cix = cp.arange(fx_start, fx_start + xcells)
+            ciy = cp.arange(fy_start, fy_start + ycells)
+            ciz = cp.arange(fz_start, fz_start + zcells)
+
+            # Create 3D grid and flatten to 1D indices
+            I, J, K = cp.meshgrid(cix, ciy, ciz, indexing='ij')
+            super_flat_indices = I + super_xcells * (J + super_ycells * K)
+            super_flat_indices = super_flat_indices.ravel()
+            
+            I, J, K = np.meshgrid(np.arange(xcells), np.arange(ycells), np.arange(zcells), indexing='ij')
+            flat_indices = I * (ycells * zcells) + J * zcells + K
+            flat_indices = flat_indices.ravel()
+
+        else:
+            #self.fine_densities = np.zeros(block_size).reshape(self.fine_mass_array)
             # Neighbors
             neighbor_range = np.arange(-n_cells_to_spread, n_cells_to_spread + 1)
             dx, dy, dz = np.meshgrid(neighbor_range, neighbor_range, neighbor_range, indexing='ij')
             neighbor_offsets_box = np.stack([dx.ravel(), dy.ravel(), dz.ravel()], axis=1)
             neighbor_offsets_dist = np.linalg.norm(neighbor_offsets_box, axis=1)
             neighbor_offsets_within_dist = neighbor_offsets_dist <= n_cells_to_spread
-            neighbor_offsets = neighbor_offsets_box[neighbor_offsets_within_dist]
+            neighbor_offsets = neighbor_offsets_box[:]
             M = neighbor_offsets.shape[0]
             
             # Coordinates to integers
-            x = np.arange(xcells)
-            y = np.arange(ycells)
-            z = np.arange(zcells)
+            x = np.arange(super_xcells)
+            y = np.arange(super_ycells)
+            z = np.arange(super_zcells)
             ix, iy, iz = np.meshgrid(x, y, z, indexing='ij')
             coords_all = np.stack([ix.ravel(), iy.ravel(), iz.ravel()], axis=1)
 
-        for start in range(0, N, chunk_size):
-            end = min(start + chunk_size, N)
-            coords = coords_all[start:end]
+            # Fine indices in each axis for the central coarse cell
+            cix = np.arange(fx_start, fx_start + xcells)
+            ciy = np.arange(fy_start, fy_start + ycells)
+            ciz = np.arange(fz_start, fz_start + zcells)
 
-            # Neighbor expanding masses
-            coords_exp = coords[:, None, :] + neighbor_offsets[None, :, :]
-            image_offsets = base.get_periodic_image_offsets(unitcell_vectors, self.boundaries, np.array(grid_shape), 
-                                                            frame_id=frame_id, use_cupy=use_cupy)
-            out_of_bounds_z_lower = coords_exp[:, :, 2] < 0
-            coords_exp[:, :, 0] += out_of_bounds_z_lower * image_offsets[0, 2]
-            coords_exp[:, :, 1] += out_of_bounds_z_lower * image_offsets[1, 2]
-            coords_exp[:, :, 2] += out_of_bounds_z_lower * image_offsets[2, 2]
-            out_of_bounds_z_higher = coords_exp[:, :, 2] >= zcells
-            coords_exp[:, :, 0] -= out_of_bounds_z_higher * image_offsets[0, 2]
-            coords_exp[:, :, 1] -= out_of_bounds_z_higher * image_offsets[1, 2]
-            coords_exp[:, :, 2] -= out_of_bounds_z_higher * image_offsets[2, 2]
-            out_of_bounds_y_lower = coords_exp[:, :, 1] < 0
-            coords_exp[:, :, 0] += out_of_bounds_y_lower * image_offsets[0, 1]
-            coords_exp[:, :, 1] += out_of_bounds_y_lower * image_offsets[1, 1]
-            out_of_bounds_y_higher = coords_exp[:, :, 1] >= ycells
-            coords_exp[:, :, 0] -= out_of_bounds_y_higher * image_offsets[0, 1]
-            coords_exp[:, :, 1] -= out_of_bounds_y_higher * image_offsets[1, 1]
-            out_of_bounds_x_lower = coords_exp[:, :, 0] < 0
-            coords_exp[:, :, 0] += out_of_bounds_x_lower * image_offsets[0, 0]
-            out_of_bounds_x_higher = coords_exp[:, :, 0] >= xcells
-            coords_exp[:, :, 0] -= out_of_bounds_x_higher * image_offsets[0, 0]
-            if use_cupy:
-                assert cp.greater_equal(coords_exp, 0).all()
-                assert cp.less(coords_exp[:, :, 0], xcells).all()
-                assert cp.less(coords_exp[:, :, 1], ycells).all()
-                assert cp.less(coords_exp[:, :, 2], zcells).all()
-            else:
-                assert (coords_exp[:, :, 0] >= 0).all(), "coords_exp[:, :, 0] contains negative indices"
-                assert (coords_exp[:, :, 1] >= 0).all(), "coords_exp[:, :, 1] contains negative indices"
-                assert (coords_exp[:, :, 2] >= 0).all(), "coords_exp[:, :, 2] contains negative indices"
-                assert (coords_exp[:, :, 0] < xcells).all(), "coords_exp[:, :, 0] contains indices >= xcells"
-                assert (coords_exp[:, :, 1] < ycells).all(), "coords_exp[:, :, 1] contains indices >= ycells"
-                assert (coords_exp[:, :, 2] < zcells).all(), "coords_exp[:, :, 2] contains indices >= zcells"
+            # Create 3D grid and flatten to 1D indices
+            I, J, K = np.meshgrid(cix, ciy, ciz, indexing='ij')
+            super_flat_indices = I + super_xcells * (J + super_ycells * K)
+            super_flat_indices = super_flat_indices.ravel()
 
-            xi, yi, zi = coords_exp[:, :, 0], coords_exp[:, :, 1], coords_exp[:, :, 2]
-            neighbor_masses = mass_grid[xi, yi, zi]
+            #print("super_flat_indices", super_flat_indices)
+#
+            #ix = super_flat_indices // (ycells * zcells)
+            #iy = (super_flat_indices % (ycells * zcells)) // zcells
+            #iz = super_flat_indices % zcells
+            #print("ix", ix, "iy", iy, "iz", iz)
+            #exit()
+            I, J, K = np.meshgrid(np.arange(xcells), np.arange(ycells), np.arange(zcells), indexing='ij')
+            flat_indices = I * (ycells * zcells) + J * zcells + K
+            flat_indices = flat_indices.ravel()
+
+
+        #start = central_idx * block_size
+        #end = start + block_size
+        coords = coords_all[super_flat_indices]
+        # Neighbor expanding masses
+        coords_exp = coords[:, None, :] + neighbor_offsets[None, :, :]
+        #image_offsets = base.get_periodic_image_offsets(unitcell_vectors, boundaries, np.array(grid_shape), 
+        #                                        frame_id=frame_id, use_cupy=use_cupy)
+        #out_of_bounds_z_lower = coords_exp[:, :, 2] < 0
+        #coords_exp[:, :, 0] += out_of_bounds_z_lower * image_offsets[0, 2]
+        #coords_exp[:, :, 1] += out_of_bounds_z_lower * image_offsets[1, 2]
+        #coords_exp[:, :, 2] += out_of_bounds_z_lower * image_offsets[2, 2]
+        #out_of_bounds_z_higher = coords_exp[:, :, 2] >= zcells
+        #coords_exp[:, :, 0] -= out_of_bounds_z_higher * image_offsets[0, 2]
+        #coords_exp[:, :, 1] -= out_of_bounds_z_higher * image_offsets[1, 2]
+        #coords_exp[:, :, 2] -= out_of_bounds_z_higher * image_offsets[2, 2]
+        #out_of_bounds_y_lower = coords_exp[:, :, 1] < 0
+        #coords_exp[:, :, 0] += out_of_bounds_y_lower * image_offsets[0, 1]
+        #coords_exp[:, :, 1] += out_of_bounds_y_lower * image_offsets[1, 1]
+        #out_of_bounds_y_higher = coords_exp[:, :, 1] >= ycells
+        #coords_exp[:, :, 0] -= out_of_bounds_y_higher * image_offsets[0, 1]
+        #coords_exp[:, :, 1] -= out_of_bounds_y_higher * image_offsets[1, 1]
+        #out_of_bounds_x_lower = coords_exp[:, :, 0] < 0
+        #coords_exp[:, :, 0] += out_of_bounds_x_lower * image_offsets[0, 0]
+        #out_of_bounds_x_higher = coords_exp[:, :, 0] >= xcells
+        #coords_exp[:, :, 0] -= out_of_bounds_x_higher * image_offsets[0, 0]
+        if use_cupy:
+            assert cp.greater_equal(coords_exp, 0).all()
+            assert cp.less(coords_exp[:, :, 0], super_xcells).all()
+            assert cp.less(coords_exp[:, :, 1], super_ycells).all()
+            assert cp.less(coords_exp[:, :, 2], super_zcells).all()
+        else:
+            assert (coords_exp[:, :, 0] >= 0).all(), "coords_exp[:, :, 0] contains negative indices"
+            assert (coords_exp[:, :, 1] >= 0).all(), "coords_exp[:, :, 1] contains negative indices"
+            assert (coords_exp[:, :, 2] >= 0).all(), "coords_exp[:, :, 2] contains negative indices"
+            assert (coords_exp[:, :, 0] < super_xcells).all(), "coords_exp[:, :, 0] contains indices >= xcells"
+            assert (coords_exp[:, :, 1] < super_ycells).all(), "coords_exp[:, :, 1] contains indices >= ycells"
+            assert (coords_exp[:, :, 2] < super_zcells).all(), "coords_exp[:, :, 2] contains indices >= zcells"
+
+        xi, yi, zi = coords_exp[:, :, 0], coords_exp[:, :, 1], coords_exp[:, :, 2]
+
+        superblock_x, superblock_y, superblock_z = 3 * self.fine_xcells, 3 * self.fine_ycells, 3 * self.fine_zcells
+        for coarse_block in range(self.fine_mass_array.shape[0]):
+            #print(coarse_block)
+            # Access the fine cells stored in the coarse block (flattened 1D array)
+            fine_cells = self.fine_mass_array[coarse_block, :]
+            # Convert (xi, yi, zi) to 1D indices for the superblock
+
+            flat_indices_neighbors = (xi * (superblock_y * superblock_z) + yi * superblock_z + zi).astype(int)
             if use_cupy:
+                sort_idx = cp.argsort(flat_indices_neighbors[:, 0])
+                flat_indices_neighbors = flat_indices_neighbors[sort_idx]
+                # neighbor_masses shape: (N, M)
+                neighbor_masses = fine_cells[flat_indices_neighbors]
                 total_mass = cp.sum(neighbor_masses, axis=1)
             else:
+                sort_idx = np.argsort(flat_indices_neighbors[:, 0])
+                flat_indices_neighbors = flat_indices_neighbors[sort_idx]
+                # neighbor_masses shape: (N, M)
+                neighbor_masses = fine_cells[flat_indices_neighbors]
                 total_mass = np.sum(neighbor_masses, axis=1)
-            volume = M * 1000.0 * self.grid_space_x * self.grid_space_y * self.grid_space_z
-            #densities = total_mass / volume * 1.66
-            # TODO: what is 1.66? Ask Abraham and turn into a descriptive constant
-            densities = total_mass / volume * 1.66
-            self.densities[start:end] = densities
+            #print(neighbor_masses[0])
+            volume = M * 1000.0 * self.grid_fine_space_x * self.grid_fine_space_y * self.grid_fine_space_z
+            densities = total_mass / volume * 1.66 # Convert amu/A^3 to g/ml using 1.66 factor
+
+            self.fine_densities[coarse_block, flat_indices] = densities
+            self.flat_indices = flat_indices
+
+        # Flatten fine_densities after the loop
+        #self.fine_densities = self.fine_densities.flatten()
+        
 
     def generate_bubble_object(self) -> "Bubble":
         """
@@ -286,10 +587,12 @@ class Grid():
         Also, prepare a DX file header in case it will be written later.
         """
         bubble_atoms = Bubble()
-        bubble_atoms.find(self.xcells, self.ycells, self.zcells, 
-                          self.densities, grid_space_x=self.grid_space_x,
-                          grid_space_y=self.grid_space_y,
-                          grid_space_z=self.grid_space_z)
+        bubble_atoms.find(self.fine_xcells, self.fine_ycells, self.fine_zcells,
+                          self.coarse_xcells, self.coarse_ycells, self.coarse_zcells,
+                          self.fine_densities, fine_grid_space_x=self.grid_fine_space_x,
+                          fine_grid_space_y=self.grid_fine_space_y,
+                          fine_grid_space_z=self.grid_fine_space_z, cell_indexes=self.coarse_cell_indexes,
+                          )
         bubble_atoms.dx_header = self.make_dx_header()
         return bubble_atoms
     
@@ -298,15 +601,15 @@ class Grid():
         Prepare the header information for a DX file.
         """
         header = {}
-        header["width"] = self.xcells
-        header["height"] = self.ycells
-        header["depth"] = self.zcells
-        header["originx"] = 5.0 * self.grid_space_x
-        header["originy"] = 5.0 * self.grid_space_y
-        header["originz"] = 5.0 * self.grid_space_z
-        header["resx"] = self.grid_space_x * 10.0
-        header["resy"] = self.grid_space_y * 10.0
-        header["resz"] = self.grid_space_z * 10.0
+        header["width"] = self.fine_xcells
+        header["height"] = self.fine_ycells
+        header["depth"] = self.fine_zcells
+        header["originx"] = 5.0 * self.grid_fine_space_x
+        header["originy"] = 5.0 * self.grid_fine_space_y
+        header["originz"] = 5.0 * self.grid_fine_space_z
+        header["resx"] = self.grid_fine_space_x * 10.0
+        header["resy"] = self.grid_fine_space_y * 10.0
+        header["resz"] = self.grid_fine_space_z * 10.0
         return header
     
     def write_masses_dx(
@@ -316,7 +619,7 @@ class Grid():
         """
         Write the mass data to a DX file.
         """
-        mass_grid = self.mass_array.reshape(self.xcells, self.ycells, self.zcells)
+        mass_grid = self.fine_mass_array.reshape(self.fine_xcells, self.fine_ycells, self.fine_zcells)
         base.write_data_array(self.make_dx_header(), mass_grid, filename)
         return
 
@@ -337,32 +640,59 @@ class Bubble():
     bubble_data: np.ndarray | None = None
     dx_header: str = field(default="")
 
-    def find(self, xcells, ycells, zcells, box_densities, grid_space_x,
-             grid_space_y, grid_space_z):
-        self.densities = np.resize(box_densities, (xcells, ycells, zcells))
-        self.bubble_data = np.zeros((xcells, ycells, zcells), dtype=np.bool_)
-        for i in range(len(box_densities)):
-            ix, iy, iz = base.index_to_index3d(i, ycells, zcells)
-            x = ix * grid_space_x
-            y = iy * grid_space_y
-            z = iz * grid_space_z
+    def find(self, fine_xcells, fine_ycells, fine_zcells,
+         coarse_xcells, coarse_ycells, coarse_zcells,
+         box_densities, fine_grid_space_x, fine_grid_space_y, fine_grid_space_z, 
+         cell_indexes):
 
-            #if box_densities[i] < 0.6:
-            if box_densities[i] < base.DENSITY_THRESHOLD:
-                self.total_atoms += 1
-                #self.total_residues += 1
-                x += grid_space_x/2
-                y += grid_space_y/2
-                z += grid_space_z/2
-                #outfile.write("You got bubbles in {:.3f} {:.3f} {:.3f}\n".format(x, y, z))
-                #print("You got bubbles in {:.3f} {:.3f} {:.3f}".format(x, y, z))
-                atom_pdb = "ATOM {:>6s}  BUB BUB  {:>4s}    {:>8.3f}{:>8.3f}{:>8.3f}  1.00  0.00\n".format(
-                    str(self.total_atoms), str(self.total_residues), x, y, z
-                )
-                self.atoms[self.total_atoms] = atom_pdb
-                self.bubble_data[ix, iy, iz] = 1
+        total_fine_x = coarse_xcells * fine_xcells
+        total_fine_y = coarse_ycells * fine_ycells
+        total_fine_z = coarse_zcells * fine_zcells
 
-        self.total_bubble_volume = np.sum(self.bubble_data) * grid_space_x * grid_space_y * grid_space_z
+        self.densities = np.zeros((total_fine_x, total_fine_y, total_fine_z))
+        self.bubble_data = np.zeros((total_fine_x, total_fine_y, total_fine_z), dtype=bool)
+
+        global_fine_indices = []
+
+        # Create 3D grid of relative fine-cell indices inside a block
+        dx = np.arange(fine_xcells)
+        dy = np.arange(fine_ycells)
+        dz = np.arange(fine_zcells)
+        rel_grid = np.stack(np.meshgrid(dx, dy, dz, indexing="ij"), axis=-1).reshape(-1, 3)  # shape: (n_fine_per_block, 3)
+
+        for i, coarse_index in enumerate(cell_indexes):
+            # Get coarse cell 3D index
+            cx, cy, cz = base.index_to_index3d(coarse_index, coarse_ycells, coarse_zcells)
+
+            # Get fine densities for this coarse cell (flattened)
+            fine_densities = box_densities[i]  # shape: (fine_xcells * fine_ycells * fine_zcells,)
+
+            # Find which fine cells are below threshold
+            low_mask = fine_densities < base.DENSITY_THRESHOLD
+            if not np.any(low_mask):
+                continue  # nothing to do
+            
+            print("found low density cells in coarse cell", i, "at index", coarse_index)
+            # Relative fine-cell indices that are below threshold
+            rel_indices = rel_grid[low_mask]  # shape: (num_low, 3)
+
+            # Compute coarse cell's origin in fine grid
+            fine_origin = np.array([cx * fine_xcells, cy * fine_ycells, cz * fine_zcells])
+
+            # Global fine cell indices
+            global_indices = rel_indices + fine_origin  # shape: (num_low, 3)
+            global_fine_indices.append(global_indices)
+
+            # Optional: mark in bubble_data
+            for fx, fy, fz in global_indices:
+                self.bubble_data[fx, fy, fz] = 1
+
+        if global_fine_indices:
+            global_fine_indices = np.vstack(global_fine_indices)  # shape: (total_low_fine_cells, 3)
+        else:
+            global_fine_indices = np.empty((0, 3), dtype=int)
+
+        self.total_bubble_volume = np.sum(self.bubble_data) * fine_grid_space_x * fine_grid_space_y * fine_grid_space_z
 
     def write_pdb(self, filename):
         with open(filename, "w") as pdb:

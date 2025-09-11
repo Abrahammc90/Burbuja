@@ -1,0 +1,116 @@
+Metadata-Version: 2.4
+Name: burbuja
+Version: 1.0.0+19.g657d338.dirty
+Summary: Bubble detection for molecular dynamics simulations.
+Author-email: Abraham Muñiz Chicharro <abrahanmuniz@gmail.com>, Lane Votapka <lvotapka100@gmail.com>
+License-Expression: MIT
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: attrs
+Requires-Dist: mdtraj
+Provides-Extra: test
+Requires-Dist: pytest>=6.1.2; extra == "test"
+Dynamic: license-file
+
+Burbuja
+==============================
+
+[//]: # (Badges)
+[![GitHub Actions Build Status](https://github.com/Abrahammc90/Burbuja/workflows/CI/badge.svg)](https://github.com/Abrahammc90/Burbuja/actions?query=workflow%3ACI)
+[![codecov](https://codecov.io/gh/Abrahammc90/Burbuja/branch/main/graph/badge.svg)](https://codecov.io/gh/Abrahammc90/Burbuja/branch/main)
+
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) 
+[![python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
+
+## Overview
+Detect bubbles, vapor pockets, and local voids within the explicit solvent of molecular dynamics (MD) simulation structures/trajectories.
+
+The Burbuja (The Spanish word for 'bubble') program automates the checking of a MD simulation input or output structure, or collection of structures, for bubbles. Bubbles can often arise in the preparation or running of a simulation if periodic box dimensions are incorrectly chosen, if high energies or temperatures are inadvertently sampled, if bad starting structures are assigned, or if faulty parameters exist in the system. These bubbles and voids can be found 'manually' by examining the structure with a molecular viewing program, but bubbles can be easily missed, manual checking can be tiresome, and small or oddly-shaped bubbles can sometimes be difficult to see. Burbuja can detect bubbles of just about any shape and significant size, within cubic, rectangular, or triclinic boxes containing an explicit solvent. Burbuja can also take a variety of input structure files, due to its reliance on the MDTraj (https://www.mdtraj.org) software for loading and definition of molecular structures.
+
+Burbuja has also been designed to detect bubbles efficiently and quickly, and can optionally make use of the CuPy library for GPU acceleration. Burbuja has also been coded with an eye toward very large structures, such as entire viruses or very large proteins, in excess of hundreds of millions of atoms, in order to detect the presence of bubbles. Burbuja may be used as a command-line tool, or its functions accessed directly by means of its API.
+
+This README is only a quickstart guide to get Burbuja up and running as soon as possible. To see more detailed **instructions** and **tutorials**, please see https://burbuja.readthedocs.io/en/latest or the docs/ subfolder.
+
+## Install
+
+The easiest, quickest way to install Burbuja is to use Mamba. If you don't already have Mamba installed, Download the Miniforge install script and run.
+
+```sh
+curl -O https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh
+bash Miniforge3-$(uname)-$(uname -m).sh
+```
+
+Once this has been done, set up a new environment:
+
+```sh
+mamba create -n BURBUJA python=3.11 --yes
+mamba activate BURBUJA
+```
+
+If you wish to benefit from GPU acceleration, install CuPy. See the CuPy documentation (https://docs.cupy.dev/en/stable/install.html) for detailed installation instruction for your own system using PyPI, Conda, or from Source, but if you're in a hurry, the following command should work:
+
+```sh
+mamba install cupy
+```
+
+Next, simply install Burbuja. All remaining dependencies should be handled automatically:
+
+```sh
+git clone https://github.com/Abrahammc90/Burbuja.git
+cd Burbuja
+python -m pip install .
+```
+
+One may then optionally run unit tests:
+
+```sh
+pytest
+```
+
+## Example
+
+One may try out the example systems in the Burbuja/examples/ subdirectory. Within, there are two files, "trypsin_benzamidine_bubble.pdb" and "trypsin_benzamidine_no_bubble.pdb". Try running the following commands:
+
+```sh
+cd examples/
+python ~/Burbuja/Burbuja/burbuja.py trypsin_benzamidine_no_bubble.pdb
+```
+
+Burbuja should indicate that no bubble was present in the structure. Next, try the structure that does contain a bubble:
+
+```sh
+cd examples/
+python ~/Burbuja/Burbuja/burbuja.py trypsin_benzamidine_bubble.pdb
+```
+
+### Important Options and Hints
+
+* In general, Burbuja programs can be run with the '-h' argument to see all available options. Please see https://burbuja.readthedocs.io/en/latest for a detailed description of programs and options.
+
+## Authors and Contributors
+
+The following people have contributed directly to the coding and validation
+efforts of Burbuja (listed an alphabetical order of last name). 
+Thanks also to everyone who has helped or will help improve this project by 
+providing feedback, bug reports, or other comments.
+
+* Rommie Amaro (principal investigator)
+* Abraham Muñiz Chicharro (developer)
+* Lane Votapka (developer)
+
+
+### Citing Burbuja and Dependencies
+
+For BibTex files of many of the following citations, please visit: https://burbuja.readthedocs.io/en/latest/citations.html
+
+If you use Burbuja, please cite the following paper:
+
+* PAPER HERE
+
+### Copyright
+
+Copyright (c) 2025, Abraham Muñiz Chicharro and Lane Votapka
