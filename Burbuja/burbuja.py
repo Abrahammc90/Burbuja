@@ -256,7 +256,7 @@ def main():
     minimum_bubble_fraction = args["minimum_bubble_fraction"]
     neighbor_cells = args["neighbor_cells"]
     use_float32 = args["float_type"] == "float32"
-
+    print("THIS IS THE WAY")
     if topology_file is None:
         structure = str(structure_file)
     else:
