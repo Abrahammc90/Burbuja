@@ -4,7 +4,6 @@ structures.py
 Data structures for Burbuja.
 """
 
-import time
 import typing
 
 from attrs import define, field
@@ -91,7 +90,7 @@ class Grid():
         Calculate the mass contained within each cell of the grid.
 
         Loops over all atoms and assigns their mass to the appropriate
-        grid cell, using either CPU or GPU arrays.
+        grid cell, using CPU arrays.
 
         Args:
             coordinates (np.ndarray): Atomic coordinates, shape (n_frames, n_atoms, 3).
@@ -211,6 +210,11 @@ class Grid():
             dtype = np.float32 if use_float32 else np.float64
             self.densities = array_lib.zeros(N, dtype=dtype)
             grid_shape_array = np.array(grid_shape)
+
+        mass_array = self.mass_array
+        # Use float32 for CPU if requested (for precision comparison testing)
+        dtype = np.float32 if use_float32 else np.float64
+        self.densities = np.zeros(N, dtype=dtype)
         
         mass_grid = mass_array.reshape(grid_shape)
         
@@ -421,7 +425,7 @@ class Bubble():
         Identify bubble regions where density is below the threshold.
 
         Populates the bubble_data mask and atom coordinates for the bubble.
-        Supports both CPU and GPU processing.
+        Supports CPU processing only.
 
         Args:
             xcells (int): Number of grid cells in x direction.

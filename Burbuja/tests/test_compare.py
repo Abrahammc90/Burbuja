@@ -48,8 +48,8 @@ def test_tb_traj_cupy():
         approx_grid_space=grid_resolution,
         boundaries=lengths)
     # Make sure all results from initialize are the same
-    box_grid_cpu.initialize_cells(use_cupy=False)
-    box_grid_gpu.initialize_cells(use_cupy=True)
+    box_grid_cpu.initialize_cells()
+    box_grid_gpu.initialize_cells()
     assert np.isclose(box_grid_cpu.xcells, box_grid_gpu.xcells)
     assert np.isclose(box_grid_cpu.ycells, box_grid_gpu.ycells)
     assert np.isclose(box_grid_cpu.zcells, box_grid_gpu.zcells)
@@ -62,9 +62,9 @@ def test_tb_traj_cupy():
 
     # Make sure results from calculate_cell_masses are the same
     box_grid_cpu.calculate_cell_masses(
-        coordinates, masses, n_atoms, frame_id=0, use_cupy=False)
+        coordinates, masses, n_atoms, frame_id=0)
     box_grid_gpu.calculate_cell_masses(
-        coordinates, masses, n_atoms, frame_id=0, use_cupy=True)
+        coordinates, masses, n_atoms, frame_id=0)
     assert np.isclose(box_grid_cpu.mass_array, box_grid_gpu.mass_array).all()
 
     # Make sure results from calculate_densities are the same
@@ -74,8 +74,8 @@ def test_tb_traj_cupy():
         unitcell_vectors, frame_id=0, use_cupy=True)
     assert np.isclose(box_grid_cpu.densities, box_grid_gpu.densities).all()
 
-    bubbles_cpu = box_grid_cpu.generate_bubble_object(use_cupy=False)
-    bubbles_gpu = box_grid_gpu.generate_bubble_object(use_cupy=True)
+    bubbles_cpu = box_grid_cpu.generate_bubble_object()
+    bubbles_gpu = box_grid_gpu.generate_bubble_object()
 
     assert bubbles_cpu.total_bubble_volume == bubbles_gpu.total_bubble_volume
     assert bubbles_cpu.total_atoms == bubbles_gpu.total_atoms
