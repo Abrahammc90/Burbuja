@@ -63,12 +63,17 @@ def burbuja(
         >>> for i, bubble in enumerate(bubbles):
         ...     print(f"Frame {i}: Bubble volume = {bubble.total_bubble_volume:.3f} nm^3")
     """
-
     bubbles = []
+    if use_cupy:
+        import cupy as cp
     if use_float32:
         mydtype = np.float32
+        if use_cupy:
+            cp_dtype = cp.float32
     else:
         mydtype = np.float64
+        if use_cupy:
+            cp_dtype = cp.float32
     if isinstance(structure, str):
         a, b, c, alpha, beta, gamma = parse.get_box_information_from_pdb_file(structure)
         n_frames, n_atoms = parse.get_num_frames_and_atoms_from_pdb_file(structure)
@@ -98,11 +103,11 @@ def burbuja(
         n_atoms = structure.n_atoms
         coordinates = structure.xyz
         unitcell_vectors = structure.unitcell_vectors
-        masses = []
-        for atom in structure.topology.atoms:
+        masses = np.zeros(n_atoms, dtype=mydtype)
+        for i, atom in enumerate(structure.topology.atoms):
             mass = atom.element.mass if atom.element else 0.0
-            masses.append(mass)
-
+            masses[i] = mass
+    
     for frame_id in range(n_frames):
         lengths = base.reshape_atoms_to_orthorombic(coordinates, unitcell_vectors, frame_id)
         box_grid = structures.Grid(
@@ -111,12 +116,12 @@ def burbuja(
             density_threshold=density_threshold,
             neighbor_cells=neighbor_cells
         )
-        box_grid.initialize_cells(use_float32=use_float32)
+        box_grid.initialize_cells(use_cupy=use_cupy, use_float32=use_float32)
         box_grid.calculate_cell_masses(
-            coordinates, masses, n_atoms, frame_id, use_float32=use_float32)
+            coordinates, masses, n_atoms, frame_id, use_cupy=use_cupy, use_float32=use_float32)
         box_grid.calculate_densities(
             unitcell_vectors, frame_id=frame_id, use_cupy=use_cupy, use_float32=use_float32)
-        bubble = box_grid.generate_bubble_object(use_float32=use_float32)
+        bubble = box_grid.generate_bubble_object(use_cupy=use_cupy, use_float32=use_float32)
         bubbles.append(bubble)
     return bubbles
 
@@ -251,7 +256,6 @@ def main():
     minimum_bubble_fraction = args["minimum_bubble_fraction"]
     neighbor_cells = args["neighbor_cells"]
     use_float32 = args["float_type"] == "float32"
-
     if topology_file is None:
         structure = str(structure_file)
     else:
