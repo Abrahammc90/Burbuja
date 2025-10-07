@@ -27,7 +27,7 @@ def burbuja(
         use_float32: bool = True,
         density_threshold: float = base.DEFAULT_DENSITY_THRESHOLD,
         neighbor_cells: int = base.DEFAULT_NEIGHBOR_CELLS
-        ) -> typing.List[structures.Bubble]:
+        ) -> structures.Bubble_grid:
     """
     Detect bubbles in a structure or trajectory and return a list of
     Bubble objects (one per frame).
@@ -121,8 +121,11 @@ def burbuja(
             coordinates, masses, n_atoms, frame_id, use_cupy=use_cupy, use_float32=use_float32)
         box_grid.calculate_densities(
             unitcell_vectors, frame_id=frame_id, use_cupy=use_cupy, use_float32=use_float32)
-        bubble = box_grid.generate_bubble_object(use_cupy=use_cupy, use_float32=use_float32)
-        bubbles.append(bubble)
+        bubble_grid_all = box_grid.generate_bubble_object(use_cupy=use_cupy, use_float32=use_float32)
+        #bubble_grid_list = structures.split_bubbles(
+        #    bubble_grid_all, base.DEFAULT_MINIMUM_BUBBLE_VOLUME)
+        #bubble_grid_list.insert(0, bubble_grid_all)
+        bubbles.append(bubble_grid_all)
     return bubbles
 
 def has_bubble(
@@ -132,7 +135,7 @@ def has_bubble(
         use_float32: bool = True,
         dx_filename_base: str | None = None,
         density_threshold: float = base.DEFAULT_DENSITY_THRESHOLD,
-        minimum_bubble_fraction: float = base.DEFAULT_MINIMUM_BUBBLE_FRACTION,
+        minimum_bubble_volume: float = base.DEFAULT_MINIMUM_BUBBLE_VOLUME,
         neighbor_cells: int = base.DEFAULT_NEIGHBOR_CELLS
     ) -> bool:
     """
@@ -180,19 +183,12 @@ def has_bubble(
                       density_threshold=density_threshold,
                       neighbor_cells=neighbor_cells)
     found_bubble = False
-    
-    for i, bubble in enumerate(bubbles):
-        if bubble.total_bubble_volume > minimum_bubble_fraction \
-                * bubble.total_system_volume:
+    for i, bubble_grid_all in enumerate(bubbles):
+        found_bubble_this_frame = structures.split_bubbles(
+            i, dx_filename_base, bubble_grid_all, minimum_bubble_volume)
+        if found_bubble_this_frame:
             found_bubble = True
-            if dx_filename_base is not None:
-                dx_filename = f"{dx_filename_base}_frame_{i}.dx"
-                bubble.write_bubble_dx(dx_filename)
-                print(f"Bubble detected with volume: "
-                      f"{bubble.total_bubble_volume:.3f} nm^3. Frame: {i}. "
-                    f"Bubble volume map file: {dx_filename}")
-            else:
-                break
+
     return found_bubble
 
 
@@ -230,13 +226,14 @@ def main():
         "-d", "--detailed-output", action="store_true",
         help="Write .dx files for visualization.")
     argparser.add_argument(
-        "--density-threshold", type=float, default=base.DEFAULT_DENSITY_THRESHOLD,
+        "-D", "--density-threshold", type=float, default=base.DEFAULT_DENSITY_THRESHOLD,
         help="Density threshold for bubble detection (g/L). "
         f"Default: {base.DEFAULT_DENSITY_THRESHOLD}")
     argparser.add_argument(
-        "--minimum-bubble-fraction", type=float, default=base.DEFAULT_MINIMUM_BUBBLE_FRACTION,
-        help="Minimum fraction of low-density cells to count as a bubble."
-        f" Default: {base.DEFAULT_MINIMUM_BUBBLE_FRACTION}")
+        "-m", "--minimum-bubble-volume", type=float, 
+        default=base.DEFAULT_MINIMUM_BUBBLE_VOLUME,
+        help="Minimum volume (in nm^3) for a bubble to be considered significant."
+        f" Default: {base.DEFAULT_MINIMUM_BUBBLE_VOLUME}")
     argparser.add_argument(
         "-n", "--neighbor-cells", type=int, default=base.DEFAULT_NEIGHBOR_CELLS,
         help="Connectivity radius (in grid cells) for clustering. "
@@ -253,7 +250,7 @@ def main():
     use_cupy = args["use_cupy"]
     detailed_output = args["detailed_output"]
     density_threshold = args["density_threshold"]
-    minimum_bubble_fraction = args["minimum_bubble_fraction"]
+    minimum_bubble_volume = args["minimum_bubble_volume"]
     neighbor_cells = args["neighbor_cells"]
     use_float32 = args["float_type"] == "float32"
     if topology_file is None:
@@ -270,7 +267,7 @@ def main():
     has_bubble_result = has_bubble(
         structure, grid_resolution, use_cupy=use_cupy, use_float32=use_float32, 
         dx_filename_base=dx_filename_base, density_threshold=density_threshold,
-        minimum_bubble_fraction=minimum_bubble_fraction, 
+        minimum_bubble_volume=minimum_bubble_volume, 
         neighbor_cells=neighbor_cells)
     time_end = time.time()
     elapsed_time = time_end - time_start

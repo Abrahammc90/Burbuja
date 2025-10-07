@@ -4,10 +4,12 @@ structures.py
 Data structures for Burbuja.
 """
 
+import time
 import typing
 
 from attrs import define, field
 import numpy as np
+import scipy.ndimage
 
 from Burbuja.modules import base
 
@@ -327,7 +329,7 @@ class Grid():
             self,
             use_cupy: bool = False,
             use_float32: bool = True
-            ) -> "Bubble":
+            ) -> "Bubble_grid":
         """
         Generate a Bubble object from the grid densities data.
 
@@ -338,18 +340,19 @@ class Grid():
             use_float32 (bool, optional): Use float32 precision. Default is False.
 
         Returns:
-            Bubble: The resulting Bubble object.
+            Bubble_grid: The resulting Bubble object.
         """
-        bubble_atoms = Bubble()
-        bubble_atoms.density_threshold = self.density_threshold
-        bubble_atoms.find(self.xcells, self.ycells, self.zcells, 
-                          self.densities, grid_space_x=self.grid_space_x,
-                          grid_space_y=self.grid_space_y,
-                          grid_space_z=self.grid_space_z,
-                          use_cupy=use_cupy, use_float32=use_float32)
-        bubble_atoms.dx_header = self.make_dx_header()
-        bubble_atoms.total_system_volume = self.total_system_volume
-        return bubble_atoms
+        bubble_grid_all = Bubble_grid()
+        bubble_grid_all.density_threshold = self.density_threshold
+        bubble_grid_all.find(
+            self.xcells, self.ycells, self.zcells, 
+            self.densities, grid_space_x=self.grid_space_x,
+            grid_space_y=self.grid_space_y,
+            grid_space_z=self.grid_space_z,
+            use_cupy=use_cupy, use_float32=use_float32)
+        bubble_grid_all.dx_header = self.make_dx_header()
+        bubble_grid_all.total_system_volume = self.total_system_volume
+        return bubble_grid_all
     
     def make_dx_header(self) -> dict:
         """
@@ -388,7 +391,7 @@ class Grid():
         return
 
 @define
-class Bubble():
+class Bubble_grid():
     """
     Represents a detected bubble or void region in a frame.
 
@@ -398,6 +401,7 @@ class Bubble():
     atoms: dict = field(factory=dict)
     total_residues: int = field(default=1)
     total_atoms: int = field(default=0)
+    volume_per_cell: float = field(default=0.0)
     total_bubble_volume: float = field(default=0.0)
     total_system_volume: float = field(default=0.0)
     densities: np.ndarray | None = None
@@ -511,8 +515,8 @@ class Bubble():
             self.atoms[atom_id] = atom_pdb
         # Calculate total bubble volume with controlled precision
         if use_float32:
-            volume_per_cell = float_dtype(grid_space_x) * float_dtype(grid_space_y) * float_dtype(grid_space_z)
-            self.total_bubble_volume = float(float_dtype(self.total_atoms) * volume_per_cell)
+            self.volume_per_cell = float_dtype(grid_space_x) * float_dtype(grid_space_y) * float_dtype(grid_space_z)
+            self.total_bubble_volume = float(float_dtype(self.total_atoms) * self.volume_per_cell)
         else:
             self.total_bubble_volume = self.total_atoms * grid_space_x * grid_space_y * grid_space_z
         # Ensure final arrays are in expected format (CPU NumPy for compatibility)
@@ -572,3 +576,76 @@ class Bubble():
         """
         base.write_data_array(self.dx_header, self.bubble_data, filename)
         return
+
+def split_bubbles(
+        frame_index: int,
+        dx_filename_base: str | None,
+        bubble_grid_all: Bubble_grid,
+        minimum_bubble_volume: float,
+        use_cupy: bool = False,
+        ) -> list[Bubble_grid]:
+    """
+    Split the bubble_grid_all object into a list of distinct bubbles
+    larger than minimum_bubble_volume.
+    """
+    if use_cupy:
+        import cupy as cp
+        # Use cupy functions throughout
+        array_lib = cp
+        # Larger chunk sizes for GPU efficiency
+        chunk_size = max(chunk_size, 10000)  # Minimum 10k for GPU
+    else:
+        array_lib = np
+    found_bubble = False
+    num_cells_minimum = minimum_bubble_volume / bubble_grid_all.volume_per_cell
+    ones_3x3x3 = np.ones((3,3,3))
+    distinct_bubbles_grid, num_features = scipy.ndimage.label(
+        bubble_grid_all.bubble_data,
+        structure=ones_3x3x3)
+    counts = array_lib.bincount(distinct_bubbles_grid.ravel())
+    bubble_indices = array_lib.where(counts > num_cells_minimum)[0]
+    
+    num_sizable_bubbles = 0
+    for bubble_index in bubble_indices[1:]:
+        new_bubble_grid = distinct_bubbles_grid == bubble_index
+        bubble_grid = Bubble_grid()
+        bubble_grid.bubble_data = 1 - new_bubble_grid
+        # Create bubble mask (vectorized operation)
+        bubble_mask = bubble_grid.bubble_data == 0
+        bubble_grid.dx_header = bubble_grid_all.dx_header
+        bubble_grid.total_bubble_volume = array_lib.sum(bubble_mask) \
+            * bubble_grid_all.volume_per_cell
+        bubble_grid.total_atoms = int(array_lib.sum(bubble_mask))
+
+        """ # Code not needed now, but kept in case it's useful later
+        bubble_grid.atoms = {}
+        if bubble_grid.total_atoms == 0:
+            # No bubbles found
+            bubble_grid.total_bubble_volume = 0.0
+        else:
+            zero_indices = np.where(bubble_grid.bubble_data == 0)
+            for j, (x_coord, y_coord, z_coord) in enumerate(zip(*zero_indices)):
+                atom_id = j + 1
+                residue_id = 1
+                atom_pdb = "ATOM {:>6s}  BUB BUB  {:>4s}    {:>8.3f}{:>8.3f}{:>8.3f}  1.00  0.00\n".format(
+                    str(atom_id), str(residue_id), x_coord, y_coord, z_coord
+                )
+                bubble_grid.atoms[atom_id] = atom_pdb
+            
+        bubble_grid.density_threshold = bubble_grid_all.density_threshold
+        
+        bubble_grid.total_system_volume = bubble_grid_all.total_system_volume
+        """
+
+        found_bubble = True
+        if dx_filename_base is not None:
+            dx_filename = f"{dx_filename_base}_frame_{frame_index}_bubble_{num_sizable_bubbles}.dx"
+            bubble_grid.write_bubble_dx(dx_filename)
+            print(f"Bubble detected with volume: "
+                f"{bubble_grid.total_bubble_volume:.3f} nm^3. Frame: {frame_index} Bubble: {num_sizable_bubbles}. "
+                f"Bubble volume map file: {dx_filename}")
+        else:
+            break
+        num_sizable_bubbles += 1
+
+    return found_bubble
