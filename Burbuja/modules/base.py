@@ -54,7 +54,11 @@ def reshape_atoms_to_orthorombic(
 
     return lengths
 
-def index_to_index3d(index, ycells, zcells):
+def index_to_index3d(
+        index: int, 
+        ycells: int, 
+        zcells: int
+        ) -> tuple:
     """
     Convert a 1D index to a 3D index (ix, iy, iz) for a grid.
 
@@ -71,7 +75,11 @@ def index_to_index3d(index, ycells, zcells):
     iz = index % zcells
     return (ix, iy, iz)
 
-def write_data_array(header, data, filename):
+def write_data_array(
+        header: dict, 
+        data: np.ndarray, 
+        filename: str
+        ) -> None:
     """
     Write a 3D data array to a file in the OpenDX format.
 

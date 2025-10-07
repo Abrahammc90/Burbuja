@@ -74,8 +74,8 @@ def test_tb_traj_cupy():
         unitcell_vectors, frame_id=0, use_cupy=True)
     assert np.isclose(box_grid_cpu.densities, box_grid_gpu.densities).all()
 
-    bubbles_cpu = box_grid_cpu.generate_bubble_object()
-    bubbles_gpu = box_grid_gpu.generate_bubble_object()
+    bubbles_cpu = box_grid_cpu.generate_bubble_object(np.zeros(3))
+    bubbles_gpu = box_grid_gpu.generate_bubble_object(np.zeros(3))
 
     assert bubbles_cpu.total_bubble_volume == bubbles_gpu.total_bubble_volume
     assert bubbles_cpu.total_atoms == bubbles_gpu.total_atoms

@@ -327,6 +327,7 @@ class Grid():
 
     def generate_bubble_object(
             self,
+            corner: np.ndarray,
             use_cupy: bool = False,
             use_float32: bool = True
             ) -> "Bubble_grid":
@@ -350,11 +351,14 @@ class Grid():
             grid_space_y=self.grid_space_y,
             grid_space_z=self.grid_space_z,
             use_cupy=use_cupy, use_float32=use_float32)
-        bubble_grid_all.dx_header = self.make_dx_header()
+        bubble_grid_all.dx_header = self.make_dx_header(corner)
         bubble_grid_all.total_system_volume = self.total_system_volume
         return bubble_grid_all
-    
-    def make_dx_header(self) -> dict:
+
+    def make_dx_header(
+            self, 
+            corner: np.ndarray
+            ) -> dict:
         """
         Prepare the header information for a DX file.
 
@@ -365,9 +369,9 @@ class Grid():
         header["width"] = self.xcells
         header["height"] = self.ycells
         header["depth"] = self.zcells
-        header["originx"] = 5.0 * self.grid_space_x
-        header["originy"] = 5.0 * self.grid_space_y
-        header["originz"] = 5.0 * self.grid_space_z
+        header["originx"] = 10.0 * corner[0] + 5.0 * self.grid_space_x
+        header["originy"] = 10.0 * corner[1] + 5.0 * self.grid_space_y
+        header["originz"] = 10.0 * corner[2] + 5.0 * self.grid_space_z
         header["resx"] = self.grid_space_x * 10.0
         header["resy"] = self.grid_space_y * 10.0
         header["resz"] = self.grid_space_z * 10.0

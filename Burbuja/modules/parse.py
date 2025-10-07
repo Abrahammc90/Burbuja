@@ -16,7 +16,9 @@ unusual_element_names = {
     "CLA": "Cl",  # Chlorine
 }
 
-def get_box_information_from_pdb_file(pdb_filename):
+def get_box_information_from_pdb_file(
+        pdb_filename: str
+        ) -> tuple:
     """
     Extract box dimensions and angles from a PDB file.
 
@@ -49,7 +51,9 @@ def get_box_information_from_pdb_file(pdb_filename):
                     raise ValueError("No CRYST1 line found in the PDB file - "
                                      "box information cannot be extracted.")
                 
-def get_num_frames_and_atoms_from_pdb_file(pdb_filename):
+def get_num_frames_and_atoms_from_pdb_file(
+        pdb_filename: str
+    ) -> tuple[int, int]:
     """
     Count the number of frames and atoms in a PDB file.
 
@@ -72,7 +76,10 @@ def get_num_frames_and_atoms_from_pdb_file(pdb_filename):
             frame_count = 1  # If no ENDMDL lines, assume single frame
         return frame_count, atom_count
 
-def get_mass_from_element_symbol(element_symbol, name_with_spaces):
+def get_mass_from_element_symbol(
+        element_symbol: str, 
+        name_with_spaces: str
+    ) -> float:
     """
     Get the atomic mass for a given element symbol or atom name.
 
@@ -131,7 +138,13 @@ def get_mass_from_element_symbol(element_symbol, name_with_spaces):
         mass = element.mass
     return mass
 
-def fill_out_coordinates_and_masses(pdb_filename, coordinates, mass_list, n_frames, n_atoms):
+def fill_out_coordinates_and_masses(
+        pdb_filename: str, 
+        coordinates: np.ndarray, 
+        mass_list: np.ndarray, 
+        n_frames: int, 
+        n_atoms: int
+    ) -> None:
     """
     Fill out the coordinates array and return atomic masses from a PDB file.
 
