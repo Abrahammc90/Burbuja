@@ -7,7 +7,6 @@ as the API.
 
 import os
 import time
-import typing
 import pathlib
 import argparse
 
@@ -107,9 +106,14 @@ def burbuja(
         for i, atom in enumerate(structure.topology.atoms):
             mass = atom.element.mass if atom.element else 0.0
             masses[i] = mass
-    
+
+    center_of_geometry_before_wrapping = np.mean(coordinates, axis=(0, 1))
+    lengths = np.diag(unitcell_vectors[0,:,:])
+    corner = center_of_geometry_before_wrapping - 0.5 * lengths
+    coordinates += -corner[np.newaxis, np.newaxis, :]
     for frame_id in range(n_frames):
-        lengths = base.reshape_atoms_to_orthorombic(coordinates, unitcell_vectors, frame_id)
+        base.reshape_atoms_to_orthorombic(coordinates, unitcell_vectors, 
+                                                    frame_id)
         box_grid = structures.Grid(
             approx_grid_space=grid_resolution,
             boundaries=lengths,
@@ -118,13 +122,13 @@ def burbuja(
         )
         box_grid.initialize_cells(use_cupy=use_cupy, use_float32=use_float32)
         box_grid.calculate_cell_masses(
-            coordinates, masses, n_atoms, frame_id, use_cupy=use_cupy, use_float32=use_float32)
+            coordinates, masses, n_atoms, frame_id, use_cupy=use_cupy, 
+            use_float32=use_float32)
         box_grid.calculate_densities(
-            unitcell_vectors, frame_id=frame_id, use_cupy=use_cupy, use_float32=use_float32)
-        bubble_grid_all = box_grid.generate_bubble_object(use_cupy=use_cupy, use_float32=use_float32)
-        #bubble_grid_list = structures.split_bubbles(
-        #    bubble_grid_all, base.DEFAULT_MINIMUM_BUBBLE_VOLUME)
-        #bubble_grid_list.insert(0, bubble_grid_all)
+            unitcell_vectors, frame_id=frame_id, use_cupy=use_cupy, 
+            use_float32=use_float32)
+        bubble_grid_all = box_grid.generate_bubble_object(
+            corner=corner, use_cupy=use_cupy, use_float32=use_float32)
         bubbles.append(bubble_grid_all)
     return bubbles
 

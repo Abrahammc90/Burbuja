@@ -66,12 +66,12 @@ Next, for the structure that has a bubble, we will detect its shape and size. Th
 
     burbuja tryp_ben_bubble.pdb -d
     
-This time, the program prints the bubble volume, and writes a file named 'tryp_ben_bubble_bubble_frame_0.dx', which you may load into a molecular visualizer such as VMD or NGLView.
+This time, the program prints several bubble volumes, and writes several files, the first one named 'tryp_ben_bubble_bubble_frame_0.dx', which you may load into a molecular visualizer such as VMD or NGLView.
 
 .. figure:: media/tb_bubble_location_size.png
    :align:  center
    
-   Figure 3: Bubble size and location are shown in red by visualizing the resulting DX file.
+   Figure 3: Bubble size and location are shown in red by visualizing the resulting DX files.
 
 Tutorial 3: Trajectories, Alternative File Formats, and GPU Acceleration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -88,7 +88,7 @@ Burbuja allows one to load structures in a variety of formats, basically anythin
 
     burbuja tb_traj.dcd -t tryp_ben.prmtop -d
 
-This command will print out the volume of the bubble for each frame, where detected.
+This command will print out the volumes of the bubbles for each frame, where detected.
 
 .. note::
 
@@ -173,7 +173,7 @@ It looks like Burbuja wrote 6 frames. Let's load them and visualize the resultin
     # Must be reloaded for visualization because Burbuja changes the MDTraj object
     new_traj_structure = mdtraj.load(tryp_ben_dcd_path, top=tryp_ben_prmtop_path)
     for i in range(6):
-        dx_filename = f"{dx_filename_base}_frame_{i}.dx"
+        dx_filename = f"{dx_filename_base}_frame_{i}_bubble_0.dx"
         traj_structure_this_frame = new_traj_structure[i]
         view = nglview.show_mdtraj(traj_structure_this_frame)
         view.add_component(dx_filename)
