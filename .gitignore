@@ -1,0 +1,9 @@
+.pytest_cache/
+build/
+burbuja/
+burbuja.egg-info/
+**/__pycache__/
+**/*.pyc
+**/*.dx
+.venv/
+bubble_final_version.code-workspace
