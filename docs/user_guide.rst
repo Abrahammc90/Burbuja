@@ -41,8 +41,8 @@ Options
 - ``-D``, ``--density_threshold DENSITY_THRESHOLD``
 	Density threshold (g/L) for void detection. Cells with neighbor-averaged density below this are considered voids. Default: ``0.25`` g/L.
 
-- ``-m``, ``--minimum_bubble_fraction MINIMUM_BUBBLE_FRACTION``
-	Minimum fraction of the total system volume for a bubble to be considered significant. Default: ``0.005``.
+- ``-m``, ``--minimum_bubble_volume MINIMUM_BUBBLE_VOLUME``
+	Minimum volume of any contiguous bubble to be considered significant. Default: ``0.005``.
 
 - ``-n``, ``--neighbor_cells NEIGHBOR_CELLS``
 	Number of cells from the central cell to include in the density average (neighbor search radius). Default: ``4``.
