@@ -4,10 +4,12 @@ structures.py
 Data structures for Burbuja.
 """
 
+import time
 import typing
 
 from attrs import define, field
 import numpy as np
+import scipy.ndimage
 
 from Burbuja.modules import base
 
@@ -37,6 +39,7 @@ class Grid():
     
     def initialize_cells(
             self,
+            use_cupy: bool = False,
             use_float32: bool = True
             ) -> None:
         """
@@ -47,7 +50,6 @@ class Grid():
         mass_array and densities arrays to zero.
 
         Args:
-            use_cupy (bool, optional): Use CuPy arrays for GPU. Default is False.
             use_float32 (bool, optional): Use float32 precision. Default is False.
 
         Returns:
@@ -65,18 +67,25 @@ class Grid():
         total_coordinates = self.xcells * self.ycells * self.zcells
         self.total_system_volume = L_x * L_y * L_z
         # Use float32 for CPU if requested (for precision comparison testing)
-        dtype = np.float32 if use_float32 else np.float64
-        self.mass_array = np.zeros(total_coordinates, dtype=dtype)
-        self.densities = np.zeros(total_coordinates, dtype=dtype)
+        if use_cupy:
+            import cupy as cp
+            dtype = cp.float32 if use_float32 else cp.float64
+            self.mass_array = cp.zeros(total_coordinates, dtype=dtype)
+            self.densities = cp.zeros(total_coordinates, dtype=dtype)
+        else:
+            dtype = np.float32 if use_float32 else np.float64
+            self.mass_array = np.zeros(total_coordinates, dtype=dtype)
+            self.densities = np.zeros(total_coordinates, dtype=dtype)
         return
 
     def calculate_cell_masses(
             self,
             coordinates: np.ndarray,
-            mass_list: list,
+            mass_list: np.ndarray,
             n_atoms: int,
             frame_id: int = 0,
             chunk_size: int = 1000,
+            use_cupy: bool = False,
             use_float32: bool = True
             ) -> None:
         """
@@ -91,30 +100,42 @@ class Grid():
             n_atoms (int): Number of atoms in the frame.
             frame_id (int, optional): Frame index. Default is 0.
             chunk_size (int, optional): Number of atoms per chunk. Default is 1000.
-            use_cupy (bool, optional): Use CuPy arrays for GPU. Default is False.
             use_float32 (bool, optional): Use float32 precision. Default is False.
 
         Returns:
             None
         """
+        if use_cupy:
+            import cupy as cp
 
         xcells, ycells, zcells = self.xcells, self.ycells, self.zcells
         for start in range(0, n_atoms, chunk_size):
             end = min(start + chunk_size, n_atoms)
             coords_batch = coordinates[frame_id, start:end, :]
             mass_slice = mass_list[start:end]
-                
             masses_batch = np.array(mass_slice, dtype=np.float32)
-            # Use float32 for CPU if requested
-            dtype = np.float32 if use_float32 else np.float64
-            coords = coords_batch.astype(dtype)
-            masses = masses_batch.astype(dtype)
+            if use_cupy:
+                dtype = cp.float32 if use_float32 else cp.float64
+                coords = cp.asarray(coords_batch, dtype=dtype)
+                masses = cp.asarray(masses_batch, dtype=dtype)
+            else:
+                # Use float32 for CPU if requested
+                dtype = np.float32 if use_float32 else np.float64
+                coords = coords_batch.astype(dtype)
+                masses = masses_batch.astype(dtype)
 
             # Grid coordinates per atom
-            grid_coords = np.zeros((end - start, 3), dtype=np.int32)
-            grid_coords[:, 0] = np.floor(coords[:,0] / self.grid_space_x).astype(np.int32)
-            grid_coords[:, 1] = np.floor(coords[:,1] / self.grid_space_y).astype(np.int32)
-            grid_coords[:, 2] = np.floor(coords[:,2] / self.grid_space_z).astype(np.int32)
+            if use_cupy:
+                grid_coords = cp.zeros((end - start, 3), dtype=cp.int32)
+                grid_coords[:, 0] = cp.floor(coords[:,0] / self.grid_space_x).astype(cp.int32)
+                grid_coords[:, 1] = cp.floor(coords[:,1] / self.grid_space_y).astype(cp.int32)
+                grid_coords[:, 2] = cp.floor(coords[:,2] / self.grid_space_z).astype(cp.int32)
+
+            else:
+                grid_coords = np.zeros((end - start, 3), dtype=np.int32)
+                grid_coords[:, 0] = np.floor(coords[:,0] / self.grid_space_x).astype(np.int32)
+                grid_coords[:, 1] = np.floor(coords[:,1] / self.grid_space_y).astype(np.int32)
+                grid_coords[:, 2] = np.floor(coords[:,2] / self.grid_space_z).astype(np.int32)
 
             xi, yi, zi = grid_coords[:, 0], grid_coords[:, 1], grid_coords[:, 2]
             all_indices_cpu = np.ones(end - start, dtype=bool)  # Treat all atoms the same for now
@@ -132,7 +153,10 @@ class Grid():
                 assert (yi_w < ycells).all(), "yi_w contains indices >= ycells"
                 assert (zi_w < zcells).all(), "zi_w contains indices >= zcells"
                 ids = xi_w * ycells * zcells + yi_w * zcells + zi_w
-                np.add.at(self.mass_array, ids, mw)
+                if use_cupy:
+                    cp.add.at(self.mass_array, ids, mw)
+                else:
+                    np.add.at(self.mass_array, ids, mw)
 
         return
 
@@ -169,7 +193,8 @@ class Grid():
         else:
             array_lib = np
             
-        grid_space_mean = np.mean([self.grid_space_x, self.grid_space_y, self.grid_space_z])    
+        grid_space_mean = np.mean(
+            [self.grid_space_x, self.grid_space_y, self.grid_space_z])    
         n_cells_to_spread = int(self.neighbor_cells * round(0.1 / grid_space_mean))
         
         xcells, ycells, zcells = self.xcells, self.ycells, self.zcells
@@ -178,21 +203,25 @@ class Grid():
         
         # Transfer mass array to GPU if using CuPy
         if use_cupy:
+            dtype = cp.float32 if use_float32 else cp.float64
+            mass_array = self.mass_array.astype(dtype)
+            self.densities = cp.zeros(N, dtype=dtype)
             grid_shape_array = cp.asarray(grid_shape, dtype=cp.int32)
         else:
+            mass_array = self.mass_array
+            # Use float32 for CPU if requested (for precision comparison testing)
+            dtype = np.float32 if use_float32 else np.float64
+            self.densities = array_lib.zeros(N, dtype=dtype)
             grid_shape_array = np.array(grid_shape)
 
-        mass_array = self.mass_array
-        # Use float32 for CPU if requested (for precision comparison testing)
-        dtype = np.float32 if use_float32 else np.float64
-        self.densities = np.zeros(N, dtype=dtype)
-        
         mass_grid = mass_array.reshape(grid_shape)
         
         # Pre-compute neighbor offsets (once, on appropriate device)
         neighbor_range = array_lib.arange(-n_cells_to_spread, n_cells_to_spread + 1)
-        dx, dy, dz = array_lib.meshgrid(neighbor_range, neighbor_range, neighbor_range, indexing='ij')
-        neighbor_offsets_box = array_lib.stack([dx.ravel(), dy.ravel(), dz.ravel()], axis=1)
+        dx, dy, dz = array_lib.meshgrid(
+            neighbor_range, neighbor_range, neighbor_range, indexing='ij')
+        neighbor_offsets_box = array_lib.stack(
+            [dx.ravel(), dy.ravel(), dz.ravel()], axis=1)
         neighbor_offsets_dist = array_lib.linalg.norm(neighbor_offsets_box, axis=1)
         
         neighbor_offsets_within_dist = neighbor_offsets_dist <= n_cells_to_spread
@@ -202,11 +231,13 @@ class Grid():
         # Get image offsets once
         if use_cupy:
             boundaries_gpu = cp.asarray(self.boundaries)
-            image_offsets = base.get_periodic_image_offsets(unitcell_vectors, boundaries_gpu, grid_shape_array,
-                                                            frame_id=frame_id, use_cupy=use_cupy)
+            image_offsets = base.get_periodic_image_offsets(
+                unitcell_vectors, boundaries_gpu, grid_shape_array,
+                frame_id=frame_id, use_cupy=use_cupy)
         else:
-            image_offsets = base.get_periodic_image_offsets(unitcell_vectors, self.boundaries, grid_shape_array,
-                                                            frame_id=frame_id, use_cupy=use_cupy)
+            image_offsets = base.get_periodic_image_offsets(
+                unitcell_vectors, self.boundaries, grid_shape_array,
+                frame_id=frame_id, use_cupy=use_cupy)
         # Calculate volume once
         volume = M * 1000.0 * self.grid_space_x * self.grid_space_y * self.grid_space_z
         
@@ -277,23 +308,15 @@ class Grid():
                 assert (coords_exp[:, :, 2] < zcells).all()
             
             # Extract neighbor masses and calculate densities (fully vectorized)
-            if use_cupy:
-                xi, yi, zi = cp.asnumpy(coords_exp[:, :, 0]), cp.asnumpy(coords_exp[:, :, 1]), cp.asnumpy(coords_exp[:, :, 2])
-                neighbor_masses = cp.asarray(mass_grid[xi, yi, zi])
-            else:
-                xi, yi, zi = coords_exp[:, :, 0], coords_exp[:, :, 1], coords_exp[:, :, 2]
-                neighbor_masses = mass_grid[xi, yi, zi]
+            xi, yi, zi = coords_exp[:, :, 0], coords_exp[:, :, 1], coords_exp[:, :, 2]
+            neighbor_masses = mass_grid[xi, yi, zi]
             total_mass = array_lib.sum(neighbor_masses, axis=1)
             
-            # Calculate densities for entire chunk
-            # This converts the densities to units of g/L (1.66 factor)
+            # Calculate densities for entire chunk (g/L)
             chunk_densities = total_mass / volume * 1.66
             
             # Store results
-            if use_cupy:
-                self.densities[start:end] = cp.asnumpy(chunk_densities)
-            else:
-                self.densities[start:end] = chunk_densities
+            self.densities[start:end] = chunk_densities
             
             # Clean up large intermediate arrays to prevent memory buildup
             del coords_exp, xi, yi, zi, neighbor_masses, total_mass, chunk_densities, coords
@@ -304,8 +327,10 @@ class Grid():
 
     def generate_bubble_object(
             self,
+            corner: np.ndarray,
+            use_cupy: bool = False,
             use_float32: bool = True
-            ) -> "Bubble":
+            ) -> "Bubble_grid":
         """
         Generate a Bubble object from the grid densities data.
 
@@ -316,20 +341,24 @@ class Grid():
             use_float32 (bool, optional): Use float32 precision. Default is False.
 
         Returns:
-            Bubble: The resulting Bubble object.
+            Bubble_grid: The resulting Bubble object.
         """
-        bubble_atoms = Bubble()
-        bubble_atoms.density_threshold = self.density_threshold
-        bubble_atoms.find(self.xcells, self.ycells, self.zcells, 
-                          self.densities, grid_space_x=self.grid_space_x,
-                          grid_space_y=self.grid_space_y,
-                          grid_space_z=self.grid_space_z,
-                          use_float32=use_float32)
-        bubble_atoms.dx_header = self.make_dx_header()
-        bubble_atoms.total_system_volume = self.total_system_volume
-        return bubble_atoms
-    
-    def make_dx_header(self) -> dict:
+        bubble_grid_all = Bubble_grid()
+        bubble_grid_all.density_threshold = self.density_threshold
+        bubble_grid_all.find(
+            self.xcells, self.ycells, self.zcells, 
+            self.densities, grid_space_x=self.grid_space_x,
+            grid_space_y=self.grid_space_y,
+            grid_space_z=self.grid_space_z,
+            use_cupy=use_cupy, use_float32=use_float32)
+        bubble_grid_all.dx_header = self.make_dx_header(corner)
+        bubble_grid_all.total_system_volume = self.total_system_volume
+        return bubble_grid_all
+
+    def make_dx_header(
+            self, 
+            corner: np.ndarray
+            ) -> dict:
         """
         Prepare the header information for a DX file.
 
@@ -340,9 +369,9 @@ class Grid():
         header["width"] = self.xcells
         header["height"] = self.ycells
         header["depth"] = self.zcells
-        header["originx"] = 5.0 * self.grid_space_x
-        header["originy"] = 5.0 * self.grid_space_y
-        header["originz"] = 5.0 * self.grid_space_z
+        header["originx"] = 10.0 * corner[0] + 5.0 * self.grid_space_x
+        header["originy"] = 10.0 * corner[1] + 5.0 * self.grid_space_y
+        header["originz"] = 10.0 * corner[2] + 5.0 * self.grid_space_z
         header["resx"] = self.grid_space_x * 10.0
         header["resy"] = self.grid_space_y * 10.0
         header["resz"] = self.grid_space_z * 10.0
@@ -366,7 +395,7 @@ class Grid():
         return
 
 @define
-class Bubble():
+class Bubble_grid():
     """
     Represents a detected bubble or void region in a frame.
 
@@ -376,6 +405,7 @@ class Bubble():
     atoms: dict = field(factory=dict)
     total_residues: int = field(default=1)
     total_atoms: int = field(default=0)
+    volume_per_cell: float = field(default=0.0)
     total_bubble_volume: float = field(default=0.0)
     total_system_volume: float = field(default=0.0)
     densities: np.ndarray | None = None
@@ -391,6 +421,7 @@ class Bubble():
              grid_space_x: float,
              grid_space_y: float,
              grid_space_z: float,
+             use_cupy: bool = False,
              use_float32: bool = True
              ) -> None:
         """
@@ -413,12 +444,17 @@ class Bubble():
         Returns:
             None
         """
-        
-        array_lib = np
-        # Ensure densities are on CPU  
-        if hasattr(box_densities, 'get'):  # Check if it's a CuPy array
-            box_densities = box_densities.get()
-        
+        if use_cupy:
+            import cupy as cp
+            array_lib = cp
+            # Ensure densities are on GPU
+            if isinstance(box_densities, np.ndarray):
+                box_densities = cp.asarray(box_densities)
+        else:
+            array_lib = np
+            # Ensure densities are on CPU  
+            if hasattr(box_densities, 'get'):  # Check if it's a CuPy array
+                box_densities = box_densities.get()
         # Set precision for calculations
         float_dtype = np.float32 if use_float32 else np.float64
         
@@ -444,19 +480,32 @@ class Bubble():
         temp = bubble_indices // zcells
         iy = temp % ycells
         ix = temp // ycells
-        
         # Calculate physical coordinates (vectorized) with controlled precision
-        x_coords = (ix * float_dtype(grid_space_x) + float_dtype(grid_space_x)/2).astype(float_dtype)
-        y_coords = (iy * float_dtype(grid_space_y) + float_dtype(grid_space_y)/2).astype(float_dtype)
-        z_coords = (iz * float_dtype(grid_space_z) + float_dtype(grid_space_z)/2).astype(float_dtype)
-        
+        if use_cupy:
+            # GPU calculations always use float32
+            x_coords = ix * grid_space_x + grid_space_x/2
+            y_coords = iy * grid_space_y + grid_space_y/2  
+            z_coords = iz * grid_space_z + grid_space_z/2
+        else:
+            # CPU calculations use specified precision
+            x_coords = (ix * float_dtype(grid_space_x) + float_dtype(grid_space_x)/2).astype(float_dtype)
+            y_coords = (iy * float_dtype(grid_space_y) + float_dtype(grid_space_y)/2).astype(float_dtype)
+            z_coords = (iz * float_dtype(grid_space_z) + float_dtype(grid_space_z)/2).astype(float_dtype)
+
         # Create bubble_data array
         self.bubble_data = array_lib.zeros((xcells, ycells, zcells), dtype=bool)
-        self.bubble_data[ix, iy, iz] = True
-        x_coords_cpu = x_coords
-        y_coords_cpu = y_coords
-        z_coords_cpu = z_coords
-        
+        if use_cupy:
+            # Use advanced indexing for GPU
+            self.bubble_data[ix, iy, iz] = True
+            # Transfer coordinates to CPU for PDB writing
+            x_coords_cpu = cp.asnumpy(x_coords)
+            y_coords_cpu = cp.asnumpy(y_coords) 
+            z_coords_cpu = cp.asnumpy(z_coords)
+        else:
+            self.bubble_data[ix, iy, iz] = True
+            x_coords_cpu = x_coords
+            y_coords_cpu = y_coords
+            z_coords_cpu = z_coords
         # Generate PDB atom records (this part stays on CPU since it's string formatting)
         self.atoms = {}
         for i in range(self.total_atoms):
@@ -468,14 +517,17 @@ class Bubble():
                 str(atom_id), str(residue_id), x, y, z
             )
             self.atoms[atom_id] = atom_pdb
-        
         # Calculate total bubble volume with controlled precision
         if use_float32:
-            volume_per_cell = float_dtype(grid_space_x) * float_dtype(grid_space_y) * float_dtype(grid_space_z)
-            self.total_bubble_volume = float(float_dtype(self.total_atoms) * volume_per_cell)
+            self.volume_per_cell = float_dtype(grid_space_x) * float_dtype(grid_space_y) * float_dtype(grid_space_z)
+            self.total_bubble_volume = float(float_dtype(self.total_atoms) * self.volume_per_cell)
         else:
             self.total_bubble_volume = self.total_atoms * grid_space_x * grid_space_y * grid_space_z
-        
+        # Ensure final arrays are in expected format (CPU NumPy for compatibility)
+        if use_cupy:
+            self.densities = cp.asnumpy(self.densities)
+            self.bubble_data = cp.asnumpy(self.bubble_data)
+        return
 
     def write_pdb(
             self,
@@ -495,6 +547,7 @@ class Bubble():
                 pdb.write(self.atoms[key])
                 pdb.write("TER\n")
             pdb.write("END\n")
+        return
 
     def write_densities_dx(
             self,
@@ -510,6 +563,7 @@ class Bubble():
             None
         """
         base.write_data_array(self.dx_header, self.densities, filename)
+        return
 
     def write_bubble_dx(
             self,
@@ -525,3 +579,77 @@ class Bubble():
             None
         """
         base.write_data_array(self.dx_header, self.bubble_data, filename)
+        return
+
+def split_bubbles(
+        frame_index: int,
+        dx_filename_base: str | None,
+        bubble_grid_all: Bubble_grid,
+        minimum_bubble_volume: float,
+        use_cupy: bool = False,
+        ) -> list[Bubble_grid]:
+    """
+    Split the bubble_grid_all object into a list of distinct bubbles
+    larger than minimum_bubble_volume.
+    """
+    if use_cupy:
+        import cupy as cp
+        # Use cupy functions throughout
+        array_lib = cp
+        # Larger chunk sizes for GPU efficiency
+        chunk_size = max(chunk_size, 10000)  # Minimum 10k for GPU
+    else:
+        array_lib = np
+    found_bubble = False
+    num_cells_minimum = minimum_bubble_volume / bubble_grid_all.volume_per_cell
+    ones_3x3x3 = np.ones((3,3,3))
+    distinct_bubbles_grid, num_features = scipy.ndimage.label(
+        bubble_grid_all.bubble_data,
+        structure=ones_3x3x3)
+    counts = array_lib.bincount(distinct_bubbles_grid.ravel())
+    bubble_indices = array_lib.where(counts > num_cells_minimum)[0]
+    
+    num_sizable_bubbles = 0
+    for bubble_index in bubble_indices[1:]:
+        new_bubble_grid = distinct_bubbles_grid == bubble_index
+        bubble_grid = Bubble_grid()
+        bubble_grid.bubble_data = 1 - new_bubble_grid
+        # Create bubble mask (vectorized operation)
+        bubble_mask = bubble_grid.bubble_data == 0
+        bubble_grid.dx_header = bubble_grid_all.dx_header
+        bubble_grid.total_bubble_volume = array_lib.sum(bubble_mask) \
+            * bubble_grid_all.volume_per_cell
+        bubble_grid.total_atoms = int(array_lib.sum(bubble_mask))
+
+        """ # Code not needed now, but kept in case it's useful later
+        bubble_grid.atoms = {}
+        if bubble_grid.total_atoms == 0:
+            # No bubbles found
+            bubble_grid.total_bubble_volume = 0.0
+        else:
+            zero_indices = np.where(bubble_grid.bubble_data == 0)
+            for j, (x_coord, y_coord, z_coord) in enumerate(zip(*zero_indices)):
+                atom_id = j + 1
+                residue_id = 1
+                atom_pdb = "ATOM {:>6s}  BUB BUB  {:>4s}    {:>8.3f}{:>8.3f}{:>8.3f}  1.00  0.00\n".format(
+                    str(atom_id), str(residue_id), x_coord, y_coord, z_coord
+                )
+                bubble_grid.atoms[atom_id] = atom_pdb
+            
+        bubble_grid.density_threshold = bubble_grid_all.density_threshold
+        
+        bubble_grid.total_system_volume = bubble_grid_all.total_system_volume
+        """
+
+        found_bubble = True
+        if dx_filename_base is not None:
+            dx_filename = f"{dx_filename_base}_frame_{frame_index}_bubble_{num_sizable_bubbles}.dx"
+            bubble_grid.write_bubble_dx(dx_filename)
+            print(f"Bubble detected with volume: "
+                f"{bubble_grid.total_bubble_volume:.3f} nm^3. Frame: {frame_index} Bubble: {num_sizable_bubbles}. "
+                f"Bubble volume map file: {dx_filename}")
+        else:
+            break
+        num_sizable_bubbles += 1
+
+    return found_bubble
