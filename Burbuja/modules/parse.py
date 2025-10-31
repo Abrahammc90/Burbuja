@@ -50,6 +50,9 @@ def get_box_information_from_pdb_file(
                     # If no CRYST1 line is found, raise an error
                     raise ValueError("No CRYST1 line found in the PDB file - "
                                      "box information cannot be extracted.")
+    
+    raise ValueError("No CRYST1 line found in the PDB file - "
+                     "is this file empty or malformed?")
                 
 def get_num_frames_and_atoms_from_pdb_file(
         pdb_filename: str
