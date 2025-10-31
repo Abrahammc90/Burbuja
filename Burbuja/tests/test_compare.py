@@ -35,11 +35,11 @@ def test_tb_traj_cupy():
     n_atoms = mdtraj_struct_frame0.n_atoms
     coordinates = mdtraj_struct_frame0.xyz
     unitcell_vectors = mdtraj_struct_frame0.unitcell_vectors
-    masses = []
-    for atom in mdtraj_struct_frame0.topology.atoms:
+    masses = np.zeros(n_atoms, dtype=np.float32)
+    for i, atom in enumerate(mdtraj_struct_frame0.topology.atoms):
         mass = atom.element.mass if atom.element else 0.0
-        masses.append(mass)
-    
+        masses[i] = mass
+
     lengths = base.reshape_atoms_to_orthorombic(coordinates, unitcell_vectors, 0)
     box_grid_cpu = structures.Grid(
         approx_grid_space=grid_resolution,
@@ -74,8 +74,8 @@ def test_tb_traj_cupy():
         unitcell_vectors, frame_id=0, use_cupy=True)
     assert np.isclose(box_grid_cpu.densities, box_grid_gpu.densities).all()
 
-    bubbles_cpu = box_grid_cpu.generate_bubble_object(use_cupy=False)
-    bubbles_gpu = box_grid_gpu.generate_bubble_object(use_cupy=True)
+    bubbles_cpu = box_grid_cpu.generate_bubble_object(np.zeros(3))
+    bubbles_gpu = box_grid_gpu.generate_bubble_object(np.zeros(3))
 
     assert bubbles_cpu.total_bubble_volume == bubbles_gpu.total_bubble_volume
     assert bubbles_cpu.total_atoms == bubbles_gpu.total_atoms

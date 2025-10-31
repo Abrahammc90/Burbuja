@@ -16,7 +16,9 @@ unusual_element_names = {
     "CLA": "Cl",  # Chlorine
 }
 
-def get_box_information_from_pdb_file(pdb_filename):
+def get_box_information_from_pdb_file(
+        pdb_filename: str
+        ) -> tuple:
     """
     Extract box dimensions and angles from a PDB file.
 
@@ -49,7 +51,9 @@ def get_box_information_from_pdb_file(pdb_filename):
                     raise ValueError("No CRYST1 line found in the PDB file - "
                                      "box information cannot be extracted.")
                 
-def get_num_frames_and_atoms_from_pdb_file(pdb_filename):
+def get_num_frames_and_atoms_from_pdb_file(
+        pdb_filename: str
+    ) -> tuple[int, int]:
     """
     Count the number of frames and atoms in a PDB file.
 
@@ -72,7 +76,10 @@ def get_num_frames_and_atoms_from_pdb_file(pdb_filename):
             frame_count = 1  # If no ENDMDL lines, assume single frame
         return frame_count, atom_count
 
-def get_mass_from_element_symbol(element_symbol, name_with_spaces):
+def get_mass_from_element_symbol(
+        element_symbol: str, 
+        name_with_spaces: str
+    ) -> float:
     """
     Get the atomic mass for a given element symbol or atom name.
 
@@ -131,7 +138,13 @@ def get_mass_from_element_symbol(element_symbol, name_with_spaces):
         mass = element.mass
     return mass
 
-def fill_out_coordinates_and_masses(pdb_filename, coordinates, n_frames, n_atoms):
+def fill_out_coordinates_and_masses(
+        pdb_filename: str, 
+        coordinates: np.ndarray, 
+        mass_list: np.ndarray, 
+        n_frames: int, 
+        n_atoms: int
+    ) -> None:
     """
     Fill out the coordinates array and return atomic masses from a PDB file.
 
@@ -144,8 +157,8 @@ def fill_out_coordinates_and_masses(pdb_filename, coordinates, n_frames, n_atoms
     Returns:
         list: List of atomic masses for all atoms in the file.
     """
-    mass_list = []
     with open(pdb_filename, 'r') as file:
+
         frame_id = 0
         atom_id = 0
         for line in file:
@@ -153,7 +166,6 @@ def fill_out_coordinates_and_masses(pdb_filename, coordinates, n_frames, n_atoms
                 if atom_id < n_atoms:
                     coords = [0.1 * float(line[30:38]), 0.1 * float(line[38:46]), 0.1 * float(line[46:54])]
                     coordinates[frame_id, atom_id, :] = coords
-                    atom_id += 1
                     name_with_spaces = line[12:16]
                     element_symbol = line[76:78].strip()
                     
@@ -161,11 +173,11 @@ def fill_out_coordinates_and_masses(pdb_filename, coordinates, n_frames, n_atoms
                     if mass == 0.0:
                         print(f"Warning: No mass found for atom {name_with_spaces} in frame {frame_id}. "
                               "Assuming mass of 0.0.")
-                        
-                    mass_list.append(mass)
+                    mass_list[atom_id] = mass
+                    atom_id += 1
                 if atom_id == n_atoms:
                     atom_id = 0
                     frame_id += 1
                     if frame_id == n_frames:
                         break
-    return mass_list
+    return

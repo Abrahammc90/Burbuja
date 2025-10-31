@@ -1,4 +1,7 @@
-bubble_project_git.code-workspace
-large_tests/
-deprecated/
-find_bubbles_cuda_chatgpt.py
+.pytest_cache/
+build/
+burbuja/
+burbuja.egg-info/
+**/__pycache__/
+**/*.pyc
+bubble_final_version.code-workspace
