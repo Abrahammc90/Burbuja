@@ -66,7 +66,7 @@ Next, for the structure that has a bubble, we will detect its shape and size. Th
 
     burbuja tryp_ben_bubble.pdb -d
     
-This time, the program prints several bubble volumes, and writes several files, the first one named 'tryp_ben_bubble_bubble_frame_0.dx', which you may load into a molecular visualizer such as VMD or NGLView.
+This time, the program prints several bubble volumes, and writes several files, the first one named 'tryp_ben_bubble_frame_0_bubble_0.dx', which you may load into a molecular visualizer such as VMD or NGLView.
 
 .. figure:: media/tb_bubble_location_size.png
    :align:  center
@@ -125,6 +125,7 @@ NOTE: You will need to install Burbuja and its dependencies, as well as NGLView:
     tryp_ben_prmtop_path = "~/Burbuja/Burbuja/tests/data/tryp_ben.prmtop"
     # Imports and other preliminaries
     import os
+    import glob
     import time
     import mdtraj
     import nglview
@@ -162,7 +163,7 @@ The "dx_filename_base" argument defines the base name for the DX files, and indi
 
 .. code-block:: python
 
-    dx_filename_base = "traj_bubble"
+    dx_filename_base = "traj"
     traj_contains_bubble = burbuja.has_bubble(traj_structure, dx_filename_base=dx_filename_base)
 
 It looks like Burbuja wrote 6 frames. Let's load them and visualize the resulting bubbles.
@@ -170,24 +171,47 @@ It looks like Burbuja wrote 6 frames. Let's load them and visualize the resultin
 .. code-block:: python
 
     view_list = []
+    # Define a list of colors to cycle through for different bubbles
+    bubble_colors = ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'cyan', 'magenta']
+
     # Must be reloaded for visualization because Burbuja changes the MDTraj object
     new_traj_structure = mdtraj.load(tryp_ben_dcd_path, top=tryp_ben_prmtop_path)
-    for i in range(6):
-        dx_filename = f"{dx_filename_base}_frame_{i}_bubble_0.dx"
+    for i in range(10):
         traj_structure_this_frame = new_traj_structure[i]
+        n_bubbles_this_frame = len(glob.glob(f"{dx_filename_base}_frame_{i}_bubble_*.dx"))
         view = nglview.show_mdtraj(traj_structure_this_frame)
-        view.add_component(dx_filename)
+        
+        # Add all bubble DX files as components
+        for j in range(n_bubbles_this_frame):
+            dx_filename = f"{dx_filename_base}_frame_{i}_bubble_{j}.dx"
+            view.add_component(dx_filename, ext='dx')
+        
+        # Clear and set up representations
         view.clear_representations()
-        view.component_1.clear_representations()
         view.add_cartoon("protein")
         view.add_licorice("water")
-        view.component_1.add_surface(opacity=0.25, wireframe=False, color="red", isolevel=0.5)
+        
+        # Add surface representations for each bubble component with different colors
+        # Component 0 is the protein, components 1+ are the bubbles
+        for j in range(n_bubbles_this_frame):
+            component_idx = j + 1  # +1 because component_0 is the protein
+            component = getattr(view, f'component_{component_idx}')
+            bubble_color = bubble_colors[j % len(bubble_colors)]  # Cycle through colors
+            component.add_surface(
+                opacity=0.25, 
+                wireframe=False, 
+                color=bubble_color, 
+                isolevel=0.5, 
+                isolevelType="value"
+            )
+        
         view_list.append(view)
+
     for i, view in enumerate(view_list):
-        print(f"Iteration: {i}")
+        print(f"Frame {i}:")
         display(view)
         
-You should be able to see the bubble locations highlighted in red.
+You should be able to see the bubble locations highlighted in multiple colors.
 
 If we wanted the bubble detection to go faster, we could use GPU acceleration with CuPy:
 

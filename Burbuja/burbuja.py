@@ -263,7 +263,7 @@ def main():
         structure = mdtraj.load(structure_file, top=topology_file)
     if detailed_output:
         structure_file_base = os.path.splitext(structure_file.name)[0]
-        dx_filename_base = f"{structure_file_base}_bubble"
+        dx_filename_base = f"{structure_file_base}"
     else:
         dx_filename_base = None
 

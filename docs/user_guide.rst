@@ -42,10 +42,13 @@ Options
 	Density threshold (g/L) for void detection. Cells with neighbor-averaged density below this are considered voids. Default: ``0.25`` g/L.
 
 - ``-m``, ``--minimum_bubble_volume MINIMUM_BUBBLE_VOLUME``
-	Minimum volume of any contiguous bubble to be considered significant. Default: ``0.005``.
+	Minimum volume of any contiguous bubble to be considered significant. Default: ``0.1``.
 
 - ``-n``, ``--neighbor_cells NEIGHBOR_CELLS``
 	Number of cells from the central cell to include in the density average (neighbor search radius). Default: ``4``.
+
+- ``--float_type FLOAT_TYPE``
+	Set the floating-point type for calculations. Options: ``float32``, ``float64``. Default: ``float32``.
 
 Examples
 ~~~~~~~~
@@ -84,6 +87,7 @@ Notes
 ~~~~~
 
 - For large systems, PDB input is recommended for speed and memory efficiency.
+- Also for large systems, consider increasing minimum_bubble_volume so that memory usage is reduced.
 - If using a non-PDB format, you must provide a compatible topology file.
 - GPU acceleration requires CuPy to be installed and a compatible GPU.
 - DX files (if detailed output is enabled) can be visualized with molecular graphics 

@@ -20,7 +20,7 @@ burbuja() Function
 	:type grid_resolution: float
 	:param use_cupy: Use CuPy for GPU acceleration. Default: False
 	:type use_cupy: bool
-	:param use_float32: Use float32 precision for calculations. Default: False
+	:param use_float32: Use float32 precision for calculations. Default: True
 	:type use_float32: bool
 	:param density_threshold: Density threshold for void detection (g/L). Default: 0.25
 	:type density_threshold: float
@@ -51,7 +51,7 @@ has_bubble() Function
 	:type structure: str or mdtraj.Trajectory
 	:param grid_resolution: Grid spacing in nanometers. Default: 0.1
 	:type grid_resolution: float
-	:param use_cupy: Use CuPy for GPU acceleration. Default: False
+	:param use_cupy: Use CuPy for GPU acceleration. Default: True
 	:type use_cupy: bool
 	:param dx_filename_base: If provided, write DX files for each frame with a bubble. Default: None
 	:type dx_filename_base: str or None
