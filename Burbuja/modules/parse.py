@@ -161,6 +161,7 @@ def fill_out_coordinates_and_masses(
 
         frame_id = 0
         atom_id = 0
+        printed_warning: set[str] = set()
         for line in file:
             if line.startswith("ATOM") or line.startswith("HETATM"):
                 if atom_id < n_atoms:
@@ -171,8 +172,10 @@ def fill_out_coordinates_and_masses(
                     
                     mass = get_mass_from_element_symbol(element_symbol, name_with_spaces)
                     if mass == 0.0:
-                        print(f"Warning: No mass found for atom {name_with_spaces} in frame {frame_id}. "
-                              "Assuming mass of 0.0.")
+                        if name_with_spaces not in printed_warning:
+                            print(f"Warning: No mass found for atom {name_with_spaces} in frame {frame_id}. "
+                                "Assuming mass of 0.0.")
+                            printed_warning.add(name_with_spaces)
                     mass_list[atom_id] = mass
                     atom_id += 1
                 if atom_id == n_atoms:

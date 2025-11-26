@@ -128,7 +128,7 @@ NOTE: You will need to install Burbuja and its dependencies, as well as NGLView:
     import time
     import mdtraj
     import nglview
-    import Burbuja.burbuja as burbuja
+    from Burbuja import burbuja
     hsp90_structure_path = os.path.expanduser(hsp90_structure_path)
     tryp_ben_dcd_path = os.path.expanduser(tryp_ben_dcd_path)
     tryp_ben_prmtop_path = os.path.expanduser(tryp_ben_prmtop_path)
@@ -207,10 +207,10 @@ If you want more low-level access to information Burbuja obtains about structure
 
 .. code-block:: python
 
-    from Burbuja.modules.base import DEFAULT_MINIMUM_BUBBLE_FRACTION
+    from Burbuja.modules.base import DEFAULT_MINIMUM_BUBBLE_VOLUME
     bubbles = burbuja.burbuja(traj_structure)
     for i, bubble in enumerate(bubbles):
-        if bubble.total_bubble_volume > DEFAULT_MINIMUM_BUBBLE_FRACTION * bubble.total_system_volume:
+        if bubble.total_bubble_volume > DEFAULT_MINIMUM_BUBBLE_VOLUME
             print(f"Frame: {i}")
             print(f"Bubble detected with volume: {bubble.total_bubble_volume:.3f} nm^3.")
             print(f"System volume: {bubble.total_system_volume:.3f} nm^3.")
