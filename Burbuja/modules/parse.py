@@ -14,6 +14,7 @@ unusual_element_names = {
     "POT": "K",  # Potassium
     "SOD": "Na",  # Sodium
     "CLA": "Cl",  # Chlorine
+    "MG": "Mg",  # Magnesium
 }
 
 def get_box_information_from_pdb_file(

@@ -56,6 +56,9 @@ class Grid():
             None
         """
         L_x, L_y, L_z = self.boundaries[:]
+        assert L_x > 0.0, "Box vector boundary is length zero."
+        assert L_y > 0.0, "Box vector boundary is length zero."
+        assert L_z > 0.0, "Box vector boundary is length zero."
         self.xcells = int((L_x + self.approx_grid_space) / self.approx_grid_space)
         self.ycells = int((L_y + self.approx_grid_space) / self.approx_grid_space)
         self.zcells = int((L_z + self.approx_grid_space) / self.approx_grid_space)

@@ -73,6 +73,8 @@ def burbuja(
         mydtype = np.float64
         if use_cupy:
             cp_dtype = cp.float32
+    print("Starting program")
+    time0 = time.time()
     if isinstance(structure, str):
         a, b, c, alpha, beta, gamma = parse.get_box_information_from_pdb_file(structure)
         n_frames, n_atoms = parse.get_num_frames_and_atoms_from_pdb_file(structure)
@@ -106,14 +108,19 @@ def burbuja(
         for i, atom in enumerate(structure.topology.atoms):
             mass = atom.element.mass if atom.element else 0.0
             masses[i] = mass
-
+    time1 = time.time()
+    print(f"Structure loaded in {time1 - time0:.2f} seconds.")
     center_of_geometry_before_wrapping = np.mean(coordinates, axis=(0, 1))
     lengths = np.diag(unitcell_vectors[0,:,:])
     corner = center_of_geometry_before_wrapping - 0.5 * lengths
     coordinates += -corner[np.newaxis, np.newaxis, :]
     for frame_id in range(n_frames):
+        print("frame ", frame_id+1, " of ", n_frames)
+        time3 = time.time()
         base.reshape_atoms_to_orthorombic(coordinates, unitcell_vectors, 
                                                     frame_id)
+        time4 = time.time()
+        print(f"Coordinates wrapped in {time4 - time3:.2f} seconds.")
         box_grid = structures.Grid(
             approx_grid_space=grid_resolution,
             boundaries=lengths,
@@ -121,14 +128,22 @@ def burbuja(
             neighbor_cells=neighbor_cells
         )
         box_grid.initialize_cells(use_cupy=use_cupy, use_float32=use_float32)
+        time5 = time.time()
+        print(f"Grid initialized in {time5 - time4:.2f} seconds.")
         box_grid.calculate_cell_masses(
             coordinates, masses, n_atoms, frame_id, use_cupy=use_cupy, 
             use_float32=use_float32)
+        time6 = time.time()
+        print(f"Cell masses calculated in {time6 - time5:.2f} seconds.")
         box_grid.calculate_densities(
             unitcell_vectors, frame_id=frame_id, use_cupy=use_cupy, 
             use_float32=use_float32)
+        time7 = time.time()
+        print(f"Densities calculated in {time7 - time6:.2f} seconds")
         bubble_grid_all = box_grid.generate_bubble_object(
             corner=corner, use_cupy=use_cupy, use_float32=use_float32)
+        time8 = time.time()
+        print(f"Bubble object generated in {time8 - time7:.2f} seconds")
         bubbles.append(bubble_grid_all)
     return bubbles
 
@@ -222,7 +237,7 @@ def main():
         help="Optional topology file (e.g., .prmtop, .psf) for trajectory formats.")
     argparser.add_argument(
         "-r", "--grid-resolution", type=float, default=0.1,
-        help="Grid spacing in nm.")
+        help="Grid spacing in nm. Default: 0.1")
     argparser.add_argument(
         "-c", "--use-cupy", action="store_true",
         help="Enable GPU acceleration via CuPy, if available.")
