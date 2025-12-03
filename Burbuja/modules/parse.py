@@ -67,12 +67,19 @@ def get_num_frames_and_atoms_from_pdb_file(
     with open(pdb_filename, 'r') as file:
         frame_count = 0
         atom_count = 0
+        found_atoms_this_block = False
         for line in file:
-            if line.startswith("MODEL"):
+            if line.startswith("ENDMDL"):
                 frame_count += 1
-            if frame_count <= 1:
+            if line.strip() == "END" and found_atoms_this_block:
+                frame_count += 1
+            if frame_count < 1:
                 if line.startswith("ATOM") or line.startswith("HETATM"):
                     atom_count += 1
+                    found_atoms_this_block = True
+            else:
+                if line.startswith("ATOM") or line.startswith("HETATM"):
+                    found_atoms_this_block = True
         if frame_count == 0:
             frame_count = 1  # If no ENDMDL lines, assume single frame
         return frame_count, atom_count
@@ -130,8 +137,15 @@ def get_mass_from_element_symbol(
                 else:
                     element = mdtraj.core.element.get_by_symbol(symbol)
             except KeyError:
-                # If we still can't find the element, return None
-                element = None
+                # If we still can't find the element, look among unusual names
+                symbol = name_with_spaces.strip()
+                if symbol in unusual_element_names:
+                    symbol = unusual_element_names[symbol]
+                try:
+                    element = mdtraj.core.element.get_by_symbol(symbol)
+                except KeyError:
+                    # At this point, give up
+                    element = None
 
     if element is None:
         mass = 0.0
@@ -159,7 +173,6 @@ def fill_out_coordinates_and_masses(
         list: List of atomic masses for all atoms in the file.
     """
     with open(pdb_filename, 'r') as file:
-
         frame_id = 0
         atom_id = 0
         printed_warning: set[str] = set()

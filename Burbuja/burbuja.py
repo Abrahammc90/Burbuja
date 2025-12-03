@@ -78,6 +78,9 @@ def burbuja(
     if isinstance(structure, str):
         a, b, c, alpha, beta, gamma = parse.get_box_information_from_pdb_file(structure)
         n_frames, n_atoms = parse.get_num_frames_and_atoms_from_pdb_file(structure)
+        print("Loading structure from PDB file...")
+        print("n_frames =", n_frames)
+        print("n_atoms =", n_atoms)
         coordinates = np.zeros((n_frames, n_atoms, 3), dtype=mydtype)
         masses = np.zeros(n_atoms, dtype=mydtype)
         unitcell_vectors0 = np.array([
