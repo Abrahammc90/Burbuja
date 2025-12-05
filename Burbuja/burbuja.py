@@ -77,7 +77,9 @@ def burbuja(
     time0 = time.time()
     if isinstance(structure, str):
         a, b, c, alpha, beta, gamma = parse.get_box_information_from_pdb_file(structure)
-        n_frames, n_atoms = parse.get_num_frames_and_atoms_from_pdb_file(structure)
+        #n_frames, n_atoms = parse.get_num_frames_and_atoms_from_pdb_file(structure)
+        n_frames = 5
+        n_atoms = 1041194688
         print("Loading structure from PDB file...")
         print("n_frames =", n_frames)
         print("n_atoms =", n_atoms)
@@ -113,9 +115,13 @@ def burbuja(
             masses[i] = mass
     time1 = time.time()
     print(f"Structure loaded in {time1 - time0:.2f} seconds.")
-    center_of_geometry_before_wrapping = np.mean(coordinates, axis=(0, 1))
+    center_of_geometry_before_wrapping = np.mean(coordinates, axis=(0, 1), dtype=np.float64)
     lengths = np.diag(unitcell_vectors[0,:,:])
     corner = center_of_geometry_before_wrapping - 0.5 * lengths
+    print("Box lengths (nm): ", lengths)
+    print("center_of_geometry_before_wrapping =", center_of_geometry_before_wrapping)
+    print("corner =", corner)
+    exit()
     coordinates += -corner[np.newaxis, np.newaxis, :]
     for frame_id in range(n_frames):
         print("frame ", frame_id+1, " of ", n_frames)

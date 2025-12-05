@@ -181,6 +181,9 @@ def fill_out_coordinates_and_masses(
                 if atom_id < n_atoms:
                     coords = [0.1 * float(line[30:38]), 0.1 * float(line[38:46]), 0.1 * float(line[46:54])]
                     coordinates[frame_id, atom_id, :] = coords
+                    if atom_id == 0 and frame_id == 0:
+                        print("First atom coords:", coords)
+                        print("coordinates[0,0,:]:", coordinates[0,0,:])
                     name_with_spaces = line[12:16]
                     element_symbol = line[76:78].strip()
                     
@@ -194,7 +197,13 @@ def fill_out_coordinates_and_masses(
                     atom_id += 1
                 if atom_id == n_atoms:
                     atom_id = 0
+                    print("frame_id:", frame_id)
                     frame_id += 1
+                    zero_count = np.sum(coordinates == 0.0)
+                    total_entries = coordinates.size
+                    print(f"Zero entries: {zero_count} / {total_entries} ({100*zero_count/total_entries:.2f}%)")
+                    print("mean just this frame:", np.mean(coordinates[:frame_id,:,:], axis=(0,1), dtype=np.float64))
+                    print("mean all frames:", np.mean(coordinates, axis=(0,1), dtype=np.float64))
                     if frame_id == n_frames:
                         break
     return
