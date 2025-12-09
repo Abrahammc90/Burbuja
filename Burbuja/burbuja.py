@@ -121,7 +121,7 @@ def burbuja(
     print("Box lengths (nm): ", lengths)
     print("center_of_geometry_before_wrapping =", center_of_geometry_before_wrapping)
     print("corner =", corner)
-    exit()
+    #exit()
     coordinates += -corner[np.newaxis, np.newaxis, :]
     for frame_id in range(n_frames):
         print("frame ", frame_id+1, " of ", n_frames)
