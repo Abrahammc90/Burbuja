@@ -106,8 +106,7 @@ def burbuja(
         for i, atom in enumerate(structure.topology.atoms):
             mass = atom.element.mass if atom.element else 0.0
             masses[i] = mass
-
-    center_of_geometry_before_wrapping = np.mean(coordinates, axis=(0, 1))
+    center_of_geometry_before_wrapping = np.mean(coordinates, axis=(0, 1), dtype=np.float64)
     lengths = np.diag(unitcell_vectors[0,:,:])
     corner = center_of_geometry_before_wrapping - 0.5 * lengths
     coordinates += -corner[np.newaxis, np.newaxis, :]
@@ -222,7 +221,7 @@ def main():
         help="Optional topology file (e.g., .prmtop, .psf) for trajectory formats.")
     argparser.add_argument(
         "-r", "--grid-resolution", type=float, default=0.1,
-        help="Grid spacing in nm.")
+        help="Grid spacing in nm. Default: 0.1")
     argparser.add_argument(
         "-c", "--use-cupy", action="store_true",
         help="Enable GPU acceleration via CuPy, if available.")
