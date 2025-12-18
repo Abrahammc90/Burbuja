@@ -60,7 +60,7 @@ jobs:
         shell: bash -l {0}
         run: |
           
-          pytest -v --cov=burbuja --cov-report=xml --color=yes -m "not needs_cupy" Burbuja/tests/
+          pytest -v --cov=Burbuja --cov-report=xml --color=yes -m "not needs_cupy" Burbuja/tests/
 
       - name: CodeCov
         uses: codecov/codecov-action@v5
