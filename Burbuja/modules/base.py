@@ -9,8 +9,6 @@ import numpy as np
 # Density threshold for bubble detection
 DEFAULT_DENSITY_THRESHOLD = 0.25 
 # Minimum fraction of the total system volume for a bubble to be considered significant
-# TODO: remove
-#DEFAULT_MINIMUM_BUBBLE_FRACTION = 0.005  
 # Radial number of neighbor cells to include in density averaging
 DEFAULT_NEIGHBOR_CELLS = 4
 DEFAULT_MINIMUM_BUBBLE_VOLUME = 0.1
@@ -35,13 +33,15 @@ def reshape_atoms_to_orthorombic(
     Returns:
         np.ndarray: Side lengths of the orthorhombic box for the frame.
     """
+    MAX_ITER = 10000
     assert unitcell_vectors is not None, \
         "Unit cell vectors are required within the mdtraj structure."
     
     vectors = unitcell_vectors[frame_id,:,:]
     lengths = np.diag(vectors)
     coords = coordinates[frame_id, :, :]
-    for _ in range(2):
+    
+    for iteration in range(MAX_ITER):
         scale3 = np.floor(coords[:, 2] / lengths[2])
         coords[:, 0] -= scale3 * vectors[2, 0]
         coords[:, 1] -= scale3 * vectors[2, 1]
@@ -51,6 +51,11 @@ def reshape_atoms_to_orthorombic(
         coords[:, 1] -= scale2 * vectors[1, 1]
         scale1 = np.floor(coords[:, 0] / lengths[0])
         coords[:, 0] -= scale1 * vectors[0, 0]
+        
+        if not (np.any(scale1) or np.any(scale2) or np.any(scale3)):
+            break
+    else:
+        raise RuntimeError(f"Coordinate wrapping did not converge after {MAX_ITER} iterations")
 
     return lengths
 

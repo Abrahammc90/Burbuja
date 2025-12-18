@@ -36,7 +36,7 @@ burbuja() Function
 		import mdtraj
 		from Burbuja import burbuja
 		traj = mdtraj.load('traj.dcd', top='top.prmtop')
-		bubbles = burbuja(traj, grid_resolution=0.1, use_cupy=True)
+		bubbles = burbuja.burbuja(traj, grid_resolution=0.1, use_cupy=True)
 		for i, bubble in enumerate(bubbles):
 			 print(f"Frame {i}: Bubble volume = {bubble.total_bubble_volume:.3f} nm^3")
 
@@ -68,10 +68,10 @@ has_bubble() Function
 
 	.. code-block:: python
 
-		from Burbuja import has_bubble
+		from Burbuja import burbuja
 		import mdtraj
 		traj = mdtraj.load('traj.dcd', top='top.prmtop')
-		contains_bubble = has_bubble(traj, use_cupy=True, dx_filename_base='bubble_output')
+		contains_bubble = burbuja.has_bubble(traj, use_cupy=True, dx_filename_base='bubble_output')
 		print("Contains bubble?", contains_bubble)
 
 Bubble Object
@@ -104,7 +104,7 @@ The Bubble object represents a detected bubble or void region in a frame. It is 
 	from Burbuja import burbuja
 	import mdtraj
 	traj = mdtraj.load('traj.dcd', top='top.prmtop')
-	bubbles = burbuja(traj)
+	bubbles = burbuja.burbuja(traj)
 	for i, bubble in enumerate(bubbles):
 		 print(f"Frame {i}: Bubble volume = {bubble.total_bubble_volume:.3f} nm^3")
 		 print(f"System volume: {bubble.total_system_volume:.3f} nm^3")

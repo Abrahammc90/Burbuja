@@ -96,6 +96,13 @@ Once Burbuja is installed, a full example workflow requires only a PDB file. The
 
 For detailed installation instructions, see the :doc:`getting_started` guide.
 
+Citing Burbuja
+==============
+
+If you use Burbuja, please cite the following paper:
+
+* Muniz-Chicharro A, Votapka L, Amaro R. Detection of Gas Bubbles and Local Voids in Molecular Simulations using burbuja. ChemRxiv. 2025; doi:10.26434/chemrxiv-2025-rxpnd This content is a preprint and has not been peer-reviewed.
+
 .. toctree::
    :maxdepth: 2
    :hidden:

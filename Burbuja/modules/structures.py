@@ -56,6 +56,9 @@ class Grid():
             None
         """
         L_x, L_y, L_z = self.boundaries[:]
+        assert L_x > 0.0, "Box vector boundary is length zero."
+        assert L_y > 0.0, "Box vector boundary is length zero."
+        assert L_z > 0.0, "Box vector boundary is length zero."
         self.xcells = int((L_x + self.approx_grid_space) / self.approx_grid_space)
         self.ycells = int((L_y + self.approx_grid_space) / self.approx_grid_space)
         self.zcells = int((L_z + self.approx_grid_space) / self.approx_grid_space)
@@ -399,11 +402,9 @@ class Bubble_grid():
     """
     Represents a detected bubble or void region in a frame.
 
-    Stores the coordinates and grid mask of bubble regions, and provides
-    methods to write them to PDB or DX files for visualization.
+    Stores the grid mask of bubble regions, and provides
+    methods to write them to DX files for visualization.
     """
-    atoms: dict = field(factory=dict)
-    total_residues: int = field(default=1)
     total_atoms: int = field(default=0)
     volume_per_cell: float = field(default=0.0)
     total_bubble_volume: float = field(default=0.0)
@@ -421,15 +422,15 @@ class Bubble_grid():
              grid_space_x: float,
              grid_space_y: float,
              grid_space_z: float,
+             chunk_size: int = 100000,
              use_cupy: bool = False,
              use_float32: bool = True
              ) -> None:
         """
         Identify bubble regions where density is below the threshold.
 
-        Populates the bubble_data mask and atom coordinates for the bubble.
-        Supports CPU processing only.
-
+        Populates the bubble_data mask.
+        
         Args:
             xcells (int): Number of grid cells in x direction.
             ycells (int): Number of grid cells in y direction.
@@ -438,6 +439,7 @@ class Bubble_grid():
             grid_space_x (float): Grid spacing in x.
             grid_space_y (float): Grid spacing in y.
             grid_space_z (float): Grid spacing in z.
+            chunk_size (int, optional): Number of bubble cells per chunk. Default is 100000.
             use_cupy (bool, optional): Use CuPy arrays for GPU. Default is False.
             use_float32 (bool, optional): Use float32 precision. Default is False.
 
@@ -455,8 +457,6 @@ class Bubble_grid():
             # Ensure densities are on CPU  
             if hasattr(box_densities, 'get'):  # Check if it's a CuPy array
                 box_densities = box_densities.get()
-        # Set precision for calculations
-        float_dtype = np.float32 if use_float32 else np.float64
         
         # Reshape densities to 3D grid
         self.densities = box_densities.reshape((xcells, ycells, zcells))
@@ -468,85 +468,55 @@ class Bubble_grid():
         if self.total_atoms == 0:
             # No bubbles found
             self.bubble_data = array_lib.zeros((xcells, ycells, zcells), dtype=bool)
-            self.atoms = {}
             self.total_bubble_volume = 0.0
+            # Transfer to CPU if needed
+            if use_cupy:
+                self.densities = cp.asnumpy(self.densities)
+                self.bubble_data = cp.asnumpy(self.bubble_data)
             return
         
-        # Get indices of bubble cells (vectorized)
+        # Get indices of bubble cells and transfer to CPU immediately
         bubble_indices = array_lib.where(bubble_mask)[0]
-        
-        # Convert 1D indices to 3D coordinates (vectorized)
-        iz = bubble_indices % zcells
-        temp = bubble_indices // zcells
-        iy = temp % ycells
-        ix = temp // ycells
-        # Calculate physical coordinates (vectorized) with controlled precision
         if use_cupy:
-            # GPU calculations always use float32
-            x_coords = ix * grid_space_x + grid_space_x/2
-            y_coords = iy * grid_space_y + grid_space_y/2  
-            z_coords = iz * grid_space_z + grid_space_z/2
-        else:
-            # CPU calculations use specified precision
-            x_coords = (ix * float_dtype(grid_space_x) + float_dtype(grid_space_x)/2).astype(float_dtype)
-            y_coords = (iy * float_dtype(grid_space_y) + float_dtype(grid_space_y)/2).astype(float_dtype)
-            z_coords = (iz * float_dtype(grid_space_z) + float_dtype(grid_space_z)/2).astype(float_dtype)
-
+            bubble_indices = cp.asnumpy(bubble_indices)
+        
         # Create bubble_data array
         self.bubble_data = array_lib.zeros((xcells, ycells, zcells), dtype=bool)
-        if use_cupy:
-            # Use advanced indexing for GPU
-            self.bubble_data[ix, iy, iz] = True
-            # Transfer coordinates to CPU for PDB writing
-            x_coords_cpu = cp.asnumpy(x_coords)
-            y_coords_cpu = cp.asnumpy(y_coords) 
-            z_coords_cpu = cp.asnumpy(z_coords)
-        else:
-            self.bubble_data[ix, iy, iz] = True
-            x_coords_cpu = x_coords
-            y_coords_cpu = y_coords
-            z_coords_cpu = z_coords
-        # Generate PDB atom records (this part stays on CPU since it's string formatting)
-        self.atoms = {}
-        for i in range(self.total_atoms):
-            atom_id = i + 1
-            residue_id = self.total_residues
-            x, y, z = x_coords_cpu[i], y_coords_cpu[i], z_coords_cpu[i]
+        
+        # Process bubble indices in chunks
+        for start in range(0, self.total_atoms, chunk_size):
+            end = min(start + chunk_size, self.total_atoms)
+            indices_chunk = bubble_indices[start:end]
             
-            atom_pdb = "ATOM {:>6s}  BUB BUB  {:>4s}    {:>8.3f}{:>8.3f}{:>8.3f}  1.00  0.00\n".format(
-                str(atom_id), str(residue_id), x, y, z
-            )
-            self.atoms[atom_id] = atom_pdb
-        # Calculate total bubble volume with controlled precision
+            # Convert 1D indices to 3D coordinates (vectorized)
+            iz = indices_chunk % zcells
+            temp = indices_chunk // zcells
+            iy = temp % ycells
+            ix = temp // ycells
+            
+            # Set bubble_data mask
+            if use_cupy:
+                # Transfer indices to GPU for setting
+                ix_gpu = cp.asarray(ix)
+                iy_gpu = cp.asarray(iy)
+                iz_gpu = cp.asarray(iz)
+                self.bubble_data[ix_gpu, iy_gpu, iz_gpu] = True
+            else:
+                self.bubble_data[ix, iy, iz] = True
+        
+        # Calculate total bubble volume
+        float_dtype = np.float32 if use_float32 else np.float64
         if use_float32:
             self.volume_per_cell = float_dtype(grid_space_x) * float_dtype(grid_space_y) * float_dtype(grid_space_z)
             self.total_bubble_volume = float(float_dtype(self.total_atoms) * self.volume_per_cell)
         else:
             self.total_bubble_volume = self.total_atoms * grid_space_x * grid_space_y * grid_space_z
-        # Ensure final arrays are in expected format (CPU NumPy for compatibility)
+        
+        # Transfer final arrays to CPU
         if use_cupy:
             self.densities = cp.asnumpy(self.densities)
             self.bubble_data = cp.asnumpy(self.bubble_data)
-        return
-
-    def write_pdb(
-            self,
-            filename: str
-        ) -> None:
-        """
-        Write the bubble atom coordinates to a PDB file.
-
-        Args:
-            filename (str): Output filename.
-
-        Returns:
-            None
-        """
-        with open(filename, "w") as pdb:
-            for key in self.atoms:
-                pdb.write(self.atoms[key])
-                pdb.write("TER\n")
-            pdb.write("END\n")
+        
         return
 
     def write_densities_dx(

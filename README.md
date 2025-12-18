@@ -79,13 +79,11 @@ providing feedback, bug reports, or other comments.
 * Lane Votapka (developer)
 
 
-### Citing Burbuja and Dependencies
-
-For BibTex files of many of the following citations, please visit: https://burbuja.readthedocs.io/en/latest/citations.html
+### Citing Burbuja
 
 If you use Burbuja, please cite the following paper:
 
-* PAPER HERE
+* Muniz-Chicharro A, Votapka L, Amaro R. Detection of Gas Bubbles and Local Voids in Molecular Simulations using burbuja. ChemRxiv. 2025; doi:10.26434/chemrxiv-2025-rxpnd This content is a preprint and has not been peer-reviewed.
 
 ### Copyright
 

@@ -15,7 +15,7 @@ To run Burbuja from the command line:
 
 .. code-block:: bash
 
-	python -m Burbuja.burbuja STRUCTURE_FILE [options]
+	burbuja STRUCTURE_FILE [options]
 
 Required Argument
 ~~~~~~~~~~~~~~~~~
@@ -54,31 +54,31 @@ Detect bubbles in a PDB file (CPU):
 
 .. code-block:: bash
 
-	python -m Burbuja.burbuja mysystem.pdb
+	burbuja mysystem.pdb
 
 Detect bubbles in a trajectory with a topology file:
 
 .. code-block:: bash
 
-	python -m Burbuja.burbuja traj.dcd -t top.prmtop
+	burbuja traj.dcd -t top.prmtop
 
 Use a custom grid resolution and enable GPU acceleration:
 
 .. code-block:: bash
 
-	python -m Burbuja.burbuja mysystem.pdb -r 0.05 -c
+	burbuja mysystem.pdb -r 0.05 -c
 
-Set a custom density threshold and minimum bubble fraction:
+Set a custom density threshold and minimum bubble volume:
 
 .. code-block:: bash
 
-	python -m Burbuja.burbuja mysystem.pdb -D 0.2 -m 0.01
+	burbuja mysystem.pdb -D 0.2 -m 0.01
 
 Enable detailed output (per-frame volumes and DX files):
 
 .. code-block:: bash
 
-	python -m Burbuja.burbuja mysystem.pdb -d
+	burbuja mysystem.pdb -d
 
 Notes
 ~~~~~

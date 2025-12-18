@@ -14,6 +14,7 @@ unusual_element_names = {
     "POT": "K",  # Potassium
     "SOD": "Na",  # Sodium
     "CLA": "Cl",  # Chlorine
+    "MG": "Mg",  # Magnesium
 }
 
 def get_box_information_from_pdb_file(
@@ -66,12 +67,19 @@ def get_num_frames_and_atoms_from_pdb_file(
     with open(pdb_filename, 'r') as file:
         frame_count = 0
         atom_count = 0
+        found_atoms_this_block = False
         for line in file:
-            if line.startswith("MODEL"):
+            if line.startswith("ENDMDL"):
                 frame_count += 1
-            if frame_count <= 1:
+            if line.strip() == "END" and found_atoms_this_block:
+                frame_count += 1
+            if frame_count < 1:
                 if line.startswith("ATOM") or line.startswith("HETATM"):
                     atom_count += 1
+                    found_atoms_this_block = True
+            else:
+                if line.startswith("ATOM") or line.startswith("HETATM"):
+                    found_atoms_this_block = True
         if frame_count == 0:
             frame_count = 1  # If no ENDMDL lines, assume single frame
         return frame_count, atom_count
@@ -129,8 +137,15 @@ def get_mass_from_element_symbol(
                 else:
                     element = mdtraj.core.element.get_by_symbol(symbol)
             except KeyError:
-                # If we still can't find the element, return None
-                element = None
+                # If we still can't find the element, look among unusual names
+                symbol = name_with_spaces.strip()
+                if symbol in unusual_element_names:
+                    symbol = unusual_element_names[symbol]
+                try:
+                    element = mdtraj.core.element.get_by_symbol(symbol)
+                except KeyError:
+                    # At this point, give up
+                    element = None
 
     if element is None:
         mass = 0.0
@@ -158,9 +173,9 @@ def fill_out_coordinates_and_masses(
         list: List of atomic masses for all atoms in the file.
     """
     with open(pdb_filename, 'r') as file:
-
         frame_id = 0
         atom_id = 0
+        printed_warning: set[str] = set()
         for line in file:
             if line.startswith("ATOM") or line.startswith("HETATM"):
                 if atom_id < n_atoms:
@@ -168,11 +183,12 @@ def fill_out_coordinates_and_masses(
                     coordinates[frame_id, atom_id, :] = coords
                     name_with_spaces = line[12:16]
                     element_symbol = line[76:78].strip()
-                    
                     mass = get_mass_from_element_symbol(element_symbol, name_with_spaces)
                     if mass == 0.0:
-                        print(f"Warning: No mass found for atom {name_with_spaces} in frame {frame_id}. "
-                              "Assuming mass of 0.0.")
+                        if name_with_spaces not in printed_warning:
+                            print(f"Warning: No mass found for atom {name_with_spaces} in frame {frame_id}. "
+                                "Assuming mass of 0.0.")
+                            printed_warning.add(name_with_spaces)
                     mass_list[atom_id] = mass
                     atom_id += 1
                 if atom_id == n_atoms:
