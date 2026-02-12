@@ -63,10 +63,10 @@ class Grid():
         self.ycells = int((L_y + self.approx_grid_space) / self.approx_grid_space)
         self.zcells = int((L_z + self.approx_grid_space) / self.approx_grid_space)
         # Now choose the actual grid space based on grid lengths and number of cells
-        # in each direction
-        self.grid_space_x = L_x / (self.xcells - 1)
-        self.grid_space_y = L_y / (self.ycells - 1)
-        self.grid_space_z = L_z / (self.zcells - 1)
+        # in each direction (bins model: ncells bins span the full box length)
+        self.grid_space_x = L_x / self.xcells
+        self.grid_space_y = L_y / self.ycells
+        self.grid_space_z = L_z / self.zcells
         total_coordinates = self.xcells * self.ycells * self.zcells
         self.total_system_volume = L_x * L_y * L_z
         # Use float32 for CPU if requested (for precision comparison testing)
@@ -241,6 +241,23 @@ class Grid():
             image_offsets = base.get_periodic_image_offsets(
                 unitcell_vectors, self.boundaries, grid_shape_array,
                 frame_id=frame_id, use_cupy=use_cupy)
+        
+        # BEGIN DEBUGGING: Verify image_offsets diagonal matches grid shape
+        if use_cupy:
+            import cupy as cp
+            image_offsets_diag = cp.asnumpy(
+                cp.array([image_offsets[0, 0], image_offsets[1, 1], image_offsets[2, 2]]))
+        else:
+            image_offsets_diag = np.array(
+                [image_offsets[0, 0], image_offsets[1, 1], image_offsets[2, 2]])
+        assert image_offsets_diag[0] == xcells, \
+            f"image_offsets[0,0] ({image_offsets_diag[0]}) != xcells ({xcells})"
+        assert image_offsets_diag[1] == ycells, \
+            f"image_offsets[1,1] ({image_offsets_diag[1]}) != ycells ({ycells})"
+        assert image_offsets_diag[2] == zcells, \
+            f"image_offsets[2,2] ({image_offsets_diag[2]}) != zcells ({zcells})"
+        # END DEBUGGING: Verify image_offsets diagonal matches grid shape
+            
         # Calculate volume once
         volume = M * 1000.0 * self.grid_space_x * self.grid_space_y * self.grid_space_z
         
@@ -511,7 +528,6 @@ class Bubble_grid():
             self.total_bubble_volume = float(float_dtype(self.total_atoms) * self.volume_per_cell)
         else:
             self.total_bubble_volume = self.total_atoms * grid_space_x * grid_space_y * grid_space_z
-        
         # Transfer final arrays to CPU
         if use_cupy:
             self.densities = cp.asnumpy(self.densities)
@@ -557,7 +573,7 @@ def split_bubbles(
         bubble_grid_all: Bubble_grid,
         minimum_bubble_volume: float,
         use_cupy: bool = False,
-        ) -> list[Bubble_grid]:
+        ) -> bool:
     """
     Split the bubble_grid_all object into a list of distinct bubbles
     larger than minimum_bubble_volume.
@@ -571,6 +587,9 @@ def split_bubbles(
     else:
         array_lib = np
     found_bubble = False
+    if bubble_grid_all.volume_per_cell == 0.0:
+        # Avoid division by zero if grid space is zero (should not happen)
+        return False
     num_cells_minimum = minimum_bubble_volume / bubble_grid_all.volume_per_cell
     ones_3x3x3 = np.ones((3,3,3))
     distinct_bubbles_grid, num_features = scipy.ndimage.label(
