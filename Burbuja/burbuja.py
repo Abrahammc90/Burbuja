@@ -122,7 +122,7 @@ def burbuja(
     corner = center_of_geometry_before_wrapping - 0.5 * lengths
     coordinates += -corner[np.newaxis, np.newaxis, :]
     for frame_id in range(n_frames):
-        if frame_id % 100 == 0:
+        if frame_id % 2 == 0:
             print(f"Processing frame {frame_id}/{n_frames}...")
         lengths = base.reshape_atoms_to_orthorombic(
             coordinates, unitcell_vectors, frame_id)
