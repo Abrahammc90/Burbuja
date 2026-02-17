@@ -123,10 +123,9 @@ def burbuja(
     coordinates += -corner[np.newaxis, np.newaxis, :]
     for frame_id in range(n_frames):
         if frame_id % 100 == 0:
-            print(f"Processing frame {frame_id+1}/{n_frames}...")
-        base.reshape_atoms_to_orthorombic(coordinates, unitcell_vectors, 
-                                                    frame_id)
-        lengths = np.diag(unitcell_vectors[frame_id,:,:])
+            print(f"Processing frame {frame_id}/{n_frames}...")
+        lengths = base.reshape_atoms_to_orthorombic(
+            coordinates, unitcell_vectors, frame_id)
         box_grid = structures.Grid(
             approx_grid_space=grid_resolution,
             boundaries=lengths,

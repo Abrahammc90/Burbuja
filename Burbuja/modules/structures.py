@@ -148,6 +148,53 @@ class Grid():
                 yi_w = yi[all_indices] #% ycells
                 zi_w = zi[all_indices] #% zcells
                 mw = masses[all_indices]
+                # BEGIN DEBUGGING: Print values when grid indices are out of bounds
+                if use_cupy:
+                    xi_cpu, yi_cpu, zi_cpu = cp.asnumpy(xi_w), cp.asnumpy(yi_w), cp.asnumpy(zi_w)
+                    coords_cpu = cp.asnumpy(coords)
+                else:
+                    xi_cpu, yi_cpu, zi_cpu = np.asarray(xi_w), np.asarray(yi_w), np.asarray(zi_w)
+                    coords_cpu = np.asarray(coords)
+                
+                bad_x = xi_cpu >= xcells
+                bad_y = yi_cpu >= ycells
+                bad_z = zi_cpu >= zcells
+                bad_x_neg = xi_cpu < 0
+                bad_y_neg = yi_cpu < 0
+                bad_z_neg = zi_cpu < 0
+                
+                if np.any(bad_x) or np.any(bad_y) or np.any(bad_z) \
+                        or np.any(bad_x_neg) or np.any(bad_y_neg) or np.any(bad_z_neg):
+                    print(f"--- Grid index out of bounds in chunk [{start}:{end}] ---")
+                    print(f"  xcells={xcells}, ycells={ycells}, zcells={zcells}")
+                    print(f"  grid_space: x={self.grid_space_x}, y={self.grid_space_y}, z={self.grid_space_z}")
+                    print(f"  boundaries: {self.boundaries}")
+                    if np.any(bad_x):
+                        idxs = np.where(bad_x)[0]
+                        print(f"  xi_w >= xcells: {len(idxs)} atoms, xi_w values={xi_cpu[idxs]}, "
+                              f"x coords={coords_cpu[idxs, 0]}")
+                    if np.any(bad_y):
+                        idxs = np.where(bad_y)[0]
+                        print(f"  yi_w >= ycells: {len(idxs)} atoms, yi_w values={yi_cpu[idxs]}, "
+                              f"y coords={coords_cpu[idxs, 1]}")
+                    if np.any(bad_z):
+                        idxs = np.where(bad_z)[0]
+                        print(f"  zi_w >= zcells: {len(idxs)} atoms, zi_w values={zi_cpu[idxs]}, "
+                              f"z coords={coords_cpu[idxs, 2]}")
+                    if np.any(bad_x_neg):
+                        idxs = np.where(bad_x_neg)[0]
+                        print(f"  xi_w < 0: {len(idxs)} atoms, xi_w values={xi_cpu[idxs]}, "
+                              f"x coords={coords_cpu[idxs, 0]}")
+                    if np.any(bad_y_neg):
+                        idxs = np.where(bad_y_neg)[0]
+                        print(f"  yi_w < 0: {len(idxs)} atoms, yi_w values={yi_cpu[idxs]}, "
+                              f"y coords={coords_cpu[idxs, 1]}")
+                    if np.any(bad_z_neg):
+                        idxs = np.where(bad_z_neg)[0]
+                        print(f"  zi_w < 0: {len(idxs)} atoms, zi_w values={zi_cpu[idxs]}, "
+                              f"z coords={coords_cpu[idxs, 2]}")
+                # END DEBUGGING: Print values when grid indices are out of bounds
+                
                 # An assertion error here indicates a failure in box wrapping.
                 assert (xi_w >= 0).all(), "xi_w contains negative indices"
                 assert (yi_w >= 0).all(), "yi_w contains negative indices"
