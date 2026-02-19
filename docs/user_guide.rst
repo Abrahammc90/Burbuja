@@ -46,6 +46,9 @@ Options
 
 - ``-n``, ``--neighbor_cells NEIGHBOR_CELLS``
 	Number of cells from the central cell to include in the density average (neighbor search radius). Default: ``4``.
+	
+- ``-M``, ``--mass_of_particles``
+    Assign an equal mass (in Daltons) to all particles. This could be helpful in situations where system particles don't correspond to real elements, and thus masses aren't known, such as a coarse-grain system. If left at the default of None, an automated attempt is made to guess particle masses individually. Default: None.
 
 Examples
 ~~~~~~~~
@@ -88,6 +91,10 @@ Notes
 - GPU acceleration requires CuPy to be installed and a compatible GPU.
 - DX files (if detailed output is enabled) can be visualized with molecular graphics 
   programs such as VMD or PyMOL.
+- For a coarse-grained (CG) system, it is recommended to use the '-M'/'--mass_of_particles'
+  argument, which assigns all particles a constant mass, since MDTraj will not know
+  what mass to assign to the fictional coarse-grained particles. A value of 100 Daltons
+  is a good starting point for a CG system.
 
 For more details, see the full documentation and API guide.
 
