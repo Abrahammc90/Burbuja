@@ -158,7 +158,8 @@ def fill_out_coordinates_and_masses(
         coordinates: np.ndarray, 
         mass_list: np.ndarray, 
         n_frames: int, 
-        n_atoms: int
+        n_atoms: int,
+        mass_of_particles: float | None = None
     ) -> None:
     """
     Fill out the coordinates array and return atomic masses from a PDB file.
@@ -183,12 +184,15 @@ def fill_out_coordinates_and_masses(
                     coordinates[frame_id, atom_id, :] = coords
                     name_with_spaces = line[12:16]
                     element_symbol = line[76:78].strip()
-                    mass = get_mass_from_element_symbol(element_symbol, name_with_spaces)
-                    if mass == 0.0:
-                        if name_with_spaces not in printed_warning:
-                            print(f"Warning: No mass found for atom {name_with_spaces} in frame {frame_id}. "
-                                "Assuming mass of 0.0.")
-                            printed_warning.add(name_with_spaces)
+                    if mass_of_particles is None:
+                        mass = get_mass_from_element_symbol(element_symbol, name_with_spaces)
+                        if mass == 0.0:
+                            if name_with_spaces not in printed_warning:
+                                print(f"Warning: No mass found for atom {name_with_spaces} in frame {frame_id}. "
+                                    "Assuming mass of 0.0.")
+                                printed_warning.add(name_with_spaces)
+                    else:
+                        mass = mass_of_particles
                     mass_list[atom_id] = mass
                     atom_id += 1
                 if atom_id == n_atoms:

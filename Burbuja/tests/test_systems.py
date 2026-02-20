@@ -216,3 +216,23 @@ def test_tb_traj_cupy():
         f"Implementations should detect bubbles in similar frames. NumPy: {numpy_bubble_frames}, CuPy: {cupy_bubble_frames}, Overlap: {list(bubble_frame_overlap)}"
     
     return
+
+def test_cg_membrane_systems():
+    """
+    Test the coarse-grained membrane systems with
+    and without a bubble.
+    """
+    pdb_filename_no = os.path.join(
+        DATA_DIRECTORY, "coarse_grain_system_first_frame_imaged.pdb")
+    result_str = burbuja.has_bubble(pdb_filename_no,
+                                    mass_of_particles=100.0)
+    assert result_str == False, \
+        "There should not be a bubble in the coarse_grain_system_first_frame_imaged.pdb structure."
+    pdb_filename_yes = os.path.join(
+        DATA_DIRECTORY, "coarse_grain_system_first_frame_imaged_bubble_rad_10.pdb")
+    result_str = burbuja.has_bubble(pdb_filename_yes,
+                                    mass_of_particles=100.0)
+    assert result_str == True, \
+        "There should be a bubble in the coarse_grain_system_first_frame_imaged_bubble_rad_10.pdb structure."
+    
+    return

@@ -63,10 +63,10 @@ class Grid():
         self.ycells = int((L_y + self.approx_grid_space) / self.approx_grid_space)
         self.zcells = int((L_z + self.approx_grid_space) / self.approx_grid_space)
         # Now choose the actual grid space based on grid lengths and number of cells
-        # in each direction
-        self.grid_space_x = L_x / (self.xcells - 1)
-        self.grid_space_y = L_y / (self.ycells - 1)
-        self.grid_space_z = L_z / (self.zcells - 1)
+        # in each direction (bins model: ncells bins span the full box length)
+        self.grid_space_x = L_x / self.xcells
+        self.grid_space_y = L_y / self.ycells
+        self.grid_space_z = L_z / self.zcells
         total_coordinates = self.xcells * self.ycells * self.zcells
         self.total_system_volume = L_x * L_y * L_z
         # Use float32 for CPU if requested (for precision comparison testing)
@@ -148,13 +148,22 @@ class Grid():
                 yi_w = yi[all_indices] #% ycells
                 zi_w = zi[all_indices] #% zcells
                 mw = masses[all_indices]
-                # An assertion error here indicates a failure in box wrapping.
-                assert (xi_w >= 0).all(), "xi_w contains negative indices"
-                assert (yi_w >= 0).all(), "yi_w contains negative indices"
-                assert (zi_w >= 0).all(), "zi_w contains negative indices"
-                assert (xi_w < xcells).all(), "xi_w contains indices >= xcells"
-                assert (yi_w < ycells).all(), "yi_w contains indices >= ycells"
-                assert (zi_w < zcells).all(), "zi_w contains indices >= zcells"
+                # Clamp indices that are out of bounds due to floating-point rounding.
+                # Verify any out-of-bounds atom is within coordinate-space tolerance
+                # of the box boundary; raise an error if not (indicates a real wrap failure).
+                tol = 1e-5 if use_float32 else 1e-12
+                L_x, L_y, L_z = self.boundaries
+                for arr, col, limit, L, name in [
+                        (xi_w, 0, xcells, L_x, 'xi_w'),
+                        (yi_w, 1, ycells, L_y, 'yi_w'),
+                        (zi_w, 2, zcells, L_z, 'zi_w')]:
+                    assert (coords[arr < 0, col] >= -tol).all(), \
+                        f"{name}: atom coordinate below 0 beyond tolerance"
+                    assert (coords[arr >= limit, col] <= L + tol).all(), \
+                        f"{name}: atom coordinate above boundary beyond tolerance"
+                xi_w = xi_w.clip(0, xcells - 1)
+                yi_w = yi_w.clip(0, ycells - 1)
+                zi_w = zi_w.clip(0, zcells - 1)
                 ids = xi_w * ycells * zcells + yi_w * zcells + zi_w
                 if use_cupy:
                     cp.add.at(self.mass_array, ids, mw)
@@ -241,6 +250,23 @@ class Grid():
             image_offsets = base.get_periodic_image_offsets(
                 unitcell_vectors, self.boundaries, grid_shape_array,
                 frame_id=frame_id, use_cupy=use_cupy)
+        
+        # BEGIN DEBUGGING: Verify image_offsets diagonal matches grid shape
+        if use_cupy:
+            import cupy as cp
+            image_offsets_diag = cp.asnumpy(
+                cp.array([image_offsets[0, 0], image_offsets[1, 1], image_offsets[2, 2]]))
+        else:
+            image_offsets_diag = np.array(
+                [image_offsets[0, 0], image_offsets[1, 1], image_offsets[2, 2]])
+        assert image_offsets_diag[0] == xcells, \
+            f"image_offsets[0,0] ({image_offsets_diag[0]}) != xcells ({xcells})"
+        assert image_offsets_diag[1] == ycells, \
+            f"image_offsets[1,1] ({image_offsets_diag[1]}) != ycells ({ycells})"
+        assert image_offsets_diag[2] == zcells, \
+            f"image_offsets[2,2] ({image_offsets_diag[2]}) != zcells ({zcells})"
+        # END DEBUGGING: Verify image_offsets diagonal matches grid shape
+            
         # Calculate volume once
         volume = M * 1000.0 * self.grid_space_x * self.grid_space_y * self.grid_space_z
         
@@ -511,7 +537,6 @@ class Bubble_grid():
             self.total_bubble_volume = float(float_dtype(self.total_atoms) * self.volume_per_cell)
         else:
             self.total_bubble_volume = self.total_atoms * grid_space_x * grid_space_y * grid_space_z
-        
         # Transfer final arrays to CPU
         if use_cupy:
             self.densities = cp.asnumpy(self.densities)
@@ -557,7 +582,7 @@ def split_bubbles(
         bubble_grid_all: Bubble_grid,
         minimum_bubble_volume: float,
         use_cupy: bool = False,
-        ) -> list[Bubble_grid]:
+        ) -> bool:
     """
     Split the bubble_grid_all object into a list of distinct bubbles
     larger than minimum_bubble_volume.
@@ -571,6 +596,9 @@ def split_bubbles(
     else:
         array_lib = np
     found_bubble = False
+    if bubble_grid_all.volume_per_cell == 0.0:
+        # Avoid division by zero if grid space is zero (should not happen)
+        return False
     num_cells_minimum = minimum_bubble_volume / bubble_grid_all.volume_per_cell
     ones_3x3x3 = np.ones((3,3,3))
     distinct_bubbles_grid, num_features = scipy.ndimage.label(

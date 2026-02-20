@@ -178,14 +178,22 @@ def get_periodic_image_offsets(
         import cupy as cp
         unitcell_vectors_frame_cpu = cp.asnumpy(unitcell_vectors_frame)
         resolution_cpu = cp.asnumpy(resolution)
+        grid_shape_cpu = cp.asnumpy(grid_shape)
     else:
         unitcell_vectors_frame_cpu = unitcell_vectors_frame
         resolution_cpu = resolution
-        
+        grid_shape_cpu = grid_shape
+    
+    # Set diagonal directly from grid_shape to avoid floating-point
+    # rounding errors. Only off-diagonal terms need division (for
+    # triclinic boxes where unit cell vectors have off-diagonal components).
     for i in range(3):
-        image_offsets_cpu[i, 0] = unitcell_vectors_frame_cpu[i, 0] // resolution_cpu[i]
-        image_offsets_cpu[i, 1] = unitcell_vectors_frame_cpu[i, 1] // resolution_cpu[i]
-        image_offsets_cpu[i, 2] = unitcell_vectors_frame_cpu[i, 2] // resolution_cpu[i]
+        for j in range(3):
+            if i == j:
+                image_offsets_cpu[i, j] = int(grid_shape_cpu[i])
+            else:
+                image_offsets_cpu[i, j] = int(np.round(
+                    unitcell_vectors_frame_cpu[i, j] / resolution_cpu[i]))
 
     # Transfer to GPU if needed
     if use_cupy:

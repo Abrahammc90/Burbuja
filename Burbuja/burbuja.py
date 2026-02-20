@@ -25,7 +25,8 @@ def burbuja(
         use_cupy: bool = False,
         use_float32: bool = True,
         density_threshold: float = base.DEFAULT_DENSITY_THRESHOLD,
-        neighbor_cells: int = base.DEFAULT_NEIGHBOR_CELLS
+        neighbor_cells: int = base.DEFAULT_NEIGHBOR_CELLS,
+        mass_of_particles: float | None = None,
         ) -> structures.Bubble_grid:
     """
     Detect bubbles in a structure or trajectory and return a list of
@@ -50,6 +51,12 @@ def burbuja(
         neighbor_cells (int, optional):
             Number of cells from the central cell to include in the density
             average. Default is 4.
+        mass_of_particles (float or None, optional):
+            Assign an equal mass (in Daltons) to all particles. This could be
+            helpful in situations where system particles don't correspond to real
+            elements, and thus masses aren't known, such as a coarse-grain system.
+            If left at the default of None, an automated attempt is made to guess
+            particle masses individually. Default: None.
 
     Returns:
         list[Bubble]: List of Bubble objects, one per frame.
@@ -95,24 +102,28 @@ def burbuja(
                   "topology file to Burbuja in order for the correct unit cell vectors "\
                   "to be used for each frame.")
         parse.fill_out_coordinates_and_masses(
-            structure, coordinates, masses, n_frames, n_atoms)
+            structure, coordinates, masses, n_frames, n_atoms, mass_of_particles)
         
     else:
         n_frames = structure.n_frames
         n_atoms = structure.n_atoms
         coordinates = structure.xyz
         unitcell_vectors = structure.unitcell_vectors
-        masses = np.zeros(n_atoms, dtype=mydtype)
-        for i, atom in enumerate(structure.topology.atoms):
-            mass = atom.element.mass if atom.element else 0.0
-            masses[i] = mass
+        if mass_of_particles is None:
+            masses = np.zeros(n_atoms, dtype=mydtype)
+            for i, atom in enumerate(structure.topology.atoms):
+                mass = atom.element.mass if atom.element else 0.0
+                masses[i] = mass
+        else:
+            masses = mass_of_particles * np.ones(n_atoms, dtype=mydtype)
+            
     center_of_geometry_before_wrapping = np.mean(coordinates, axis=(0, 1), dtype=np.float64)
     lengths = np.diag(unitcell_vectors[0,:,:])
     corner = center_of_geometry_before_wrapping - 0.5 * lengths
     coordinates += -corner[np.newaxis, np.newaxis, :]
     for frame_id in range(n_frames):
-        base.reshape_atoms_to_orthorombic(coordinates, unitcell_vectors, 
-                                                    frame_id)
+        lengths = base.reshape_atoms_to_orthorombic(
+            coordinates, unitcell_vectors, frame_id)
         box_grid = structures.Grid(
             approx_grid_space=grid_resolution,
             boundaries=lengths,
@@ -139,7 +150,8 @@ def has_bubble(
         dx_filename_base: str | None = None,
         density_threshold: float = base.DEFAULT_DENSITY_THRESHOLD,
         minimum_bubble_volume: float = base.DEFAULT_MINIMUM_BUBBLE_VOLUME,
-        neighbor_cells: int = base.DEFAULT_NEIGHBOR_CELLS
+        neighbor_cells: int = base.DEFAULT_NEIGHBOR_CELLS,
+        mass_of_particles: float | None = None
     ) -> bool:
     """
     Quickly check if a structure or trajectory contains a significant
@@ -170,6 +182,12 @@ def has_bubble(
         neighbor_cells (int, optional):
             Number of cells from the central cell to include in the
             density average. Default is 4.
+        mass_of_particles (float or None, optional):
+            Assign an equal mass (in Daltons) to all particles. This could be
+            helpful in situations where system particles don't correspond to real
+            elements, and thus masses aren't known, such as a coarse-grain system.
+            If left at the default of None, an automated attempt is made to guess
+            particle masses individually. Default: None.
 
     Returns:
         bool: True if a significant bubble is found, False otherwise.
@@ -184,7 +202,8 @@ def has_bubble(
     bubbles = burbuja(structure, grid_resolution, use_cupy=use_cupy,
                       use_float32=use_float32,
                       density_threshold=density_threshold,
-                      neighbor_cells=neighbor_cells)
+                      neighbor_cells=neighbor_cells,
+                      mass_of_particles=mass_of_particles)
     found_bubble = False
     for i, bubble_grid_all in enumerate(bubbles):
         found_bubble_this_frame = structures.split_bubbles(
@@ -242,6 +261,14 @@ def main():
         help="Connectivity radius (in grid cells) for clustering. "
         f"Default: {base.DEFAULT_NEIGHBOR_CELLS}.")
     argparser.add_argument(
+        "-M", "--mass_of_particles", type=float, default=None,
+        help="Assign an equal mass (in Daltons) to all particles. This could be "
+        "helpful in situations where system particles don't correspond to real "
+        "elements, and thus masses aren't known, such as a coarse-grain system. "
+        "If left at the default of None, an automated attempt is made to guess "
+        "particle masses individually. Default: None."
+        )
+    argparser.add_argument(
         "--float_type", choices=["float32", "float64"], default="float32",
         help="Precision for calculations (float32 occupies less memory, float64 "
             "is more precise). Default: float32.")
@@ -255,6 +282,7 @@ def main():
     density_threshold = args["density_threshold"]
     minimum_bubble_volume = args["minimum_bubble_volume"]
     neighbor_cells = args["neighbor_cells"]
+    mass_of_particles = args["mass_of_particles"]
     use_float32 = args["float_type"] == "float32"
     if topology_file is None:
         structure = str(structure_file)
@@ -271,7 +299,7 @@ def main():
         structure, grid_resolution, use_cupy=use_cupy, use_float32=use_float32, 
         dx_filename_base=dx_filename_base, density_threshold=density_threshold,
         minimum_bubble_volume=minimum_bubble_volume, 
-        neighbor_cells=neighbor_cells)
+        neighbor_cells=neighbor_cells, mass_of_particles=mass_of_particles)
     time_end = time.time()
     elapsed_time = time_end - time_start
     print(f"Bubble detection completed in {elapsed_time:.2f} seconds.")
