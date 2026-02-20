@@ -29,7 +29,7 @@ dependencies = [
 ]
 
 [project.scripts]
-burbuja = "burbuja.burbuja:main"
+burbuja = "Burbuja.burbuja:main"
 
 # Update the urls once the hosting is set up.
 [project.urls]
