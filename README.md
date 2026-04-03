@@ -69,6 +69,22 @@ Burbuja is designed with massive systems in mind — from typical protein–liga
 
 ---
 
+## Performance
+
+Burbuja is fast on CPU and dramatically faster with GPU acceleration via CuPy. Benchmarks were run at a grid resolution of 0.1 nm (— = not tested):
+
+| System | Size (atoms) | Frames | CPU time (s) | GPU time (s) |
+|---|---:|---:|---:|---:|
+| Trypsin–benzamidine | ~23,000 | 1 | 1.9 | 0.6 |
+| Trypsin–benzamidine | ~23,000 | 10 | 22.5 | 3.1 |
+| CG Membrane System | ~31,000 | 1 | 33.0 | 2.8 |
+| CG Membrane System | ~31,000 | 25,000 | — | ~57,000 |
+| Influenza Virion | ~150 million | 1 | ~16,000 | ~1,200 |
+| Respiratory Aerosol | ~1 billion | 1 | — | ~3,400 |
+| Respiratory Aerosol | ~1 billion | 5 | — | ~13,800 |
+
+---
+
 ## Install
 
 The easiest way to install Burbuja is with Mamba. If you don't have Mamba, install Miniforge first:
