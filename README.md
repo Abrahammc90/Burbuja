@@ -71,7 +71,7 @@ Burbuja is designed with massive systems in mind — from typical protein–liga
 
 ## Performance
 
-Burbuja is fast on CPU and dramatically faster with GPU acceleration via CuPy. Benchmarks were run at a grid resolution of 0.1 nm (— = not tested):
+Burbuja is fast on CPU and dramatically faster with GPU acceleration via CuPy. (— = not tested):
 
 | System | Size (atoms) | Frames | CPU time (s) | GPU time (s) |
 |---|---:|---:|---:|---:|
