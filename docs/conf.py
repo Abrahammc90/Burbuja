@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.abspath('..'))
 # -- Project information -----------------------------------------------------
 
 project = 'burbuja'
-copyright = ("2025, Abraham Muñiz Chicharro  and Lane Votapka. Project structure based on the "
+copyright = ("2026, Abraham Muñiz Chicharro  and Lane Votapka. Project structure based on the "
              "Computational Molecular Science Python Cookiecutter version 1.11")
 author = 'Abraham Muñiz Chicharro  and Lane Votapka'
 

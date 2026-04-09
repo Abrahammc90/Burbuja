@@ -177,10 +177,10 @@ Thanks also to everyone who has helped improve this project through feedback, bu
 
 If you use Burbuja in your work, please cite:
 
-> Muniz-Chicharro A, Votapka L, Amaro R. Detection of Gas Bubbles and Local Voids in Molecular Simulations using burbuja. *ChemRxiv*. 2025. doi:[10.26434/chemrxiv-2025-rxpnd](https://doi.org/10.26434/chemrxiv-2025-rxpnd)
+> Muñiz-Chicharro A, Votapka LW, Amaro RE. Detection of gas bubbles and local voids in molecular simulations using burbuja. Protein Science. 2026;35(5): e70562. https://doi.org/10.1002/pro.70562
 
 ---
 
 ### Copyright
 
-Copyright (c) 2025, Abraham Muñiz Chicharro and Lane Votapka
+Copyright (c) 2026, Abraham Muñiz Chicharro and Lane Votapka
