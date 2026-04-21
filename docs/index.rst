@@ -101,7 +101,7 @@ Citing Burbuja
 
 If you use Burbuja, please cite the following paper:
 
-* Muniz-Chicharro A, Votapka L, Amaro R. Detection of Gas Bubbles and Local Voids in Molecular Simulations using burbuja. ChemRxiv. 2025; doi:10.26434/chemrxiv-2025-rxpnd This content is a preprint and has not been peer-reviewed.
+* Muñiz-Chicharro A, Votapka LW, Amaro RE. Detection of gas bubbles and local voids in molecular simulations using burbuja. Protein Science. 2026;35(5): e70562. https://doi.org/10.1002/pro.70562
 
 .. toctree::
    :maxdepth: 2

@@ -1,90 +1,186 @@
-Burbuja
-==============================
+# Burbuja
 
-[//]: # (Badges)
+<p align="center">
+  <strong>Automated detection of gas bubbles, vapor pockets, and voids in molecular dynamics simulations</strong>
+</p>
+
 [![GitHub Actions Build Status](https://github.com/Abrahammc90/Burbuja/workflows/CI/badge.svg)](https://github.com/Abrahammc90/Burbuja/actions?query=workflow%3ACI)
 [![codecov](https://codecov.io/gh/Abrahammc90/Burbuja/branch/main/graph/badge.svg)](https://codecov.io/gh/Abrahammc90/Burbuja/branch/main)
-
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
+[![DOI](https://img.shields.io/badge/DOI-10.26434%2Fchemrxiv--2025--rxpnd-blue)](https://doi.org/10.26434/chemrxiv-2025-rxpnd)
+
+---
 
 ## Overview
-Detect bubbles, vapor pockets, and local voids within the explicit solvent of molecular dynamics (MD) simulation structures/trajectories.
 
-The Burbuja (The Spanish word for 'bubble') program automates the checking of a MD simulation input or output structure, or collection of structures, for bubbles. Bubbles can often arise in the preparation or running of a simulation if periodic box dimensions are incorrectly chosen, if high energies or temperatures are inadvertently sampled, if bad starting structures are assigned, or if faulty parameters exist in the system. These bubbles and voids can be found 'manually' by examining the structure with a molecular viewing program, but bubbles can be easily missed, manual checking can be tiresome, and small or oddly-shaped bubbles can sometimes be difficult to see. Burbuja can detect bubbles of just about any shape and significant size, within cubic, rectangular, or triclinic boxes containing an explicit solvent. Burbuja can also take a variety of input structure files, due to its reliance on the MDTraj (https://www.mdtraj.org) software for loading and definition of molecular structures.
+Bubbles and vapor pockets in MD simulations are a silent hazard: they arise from incorrectly sized periodic boxes, bad starting structures, extreme energies, or faulty force-field parameters — and are easy to miss by eye. **Burbuja** (Spanish for *bubble*) automates this check, scanning any explicit-solvent structure or trajectory for voids of any shape and flagging them in seconds.
 
-Burbuja has also been designed to detect bubbles efficiently and quickly, and can optionally make use of the CuPy library for GPU acceleration. Burbuja has also been coded with an eye toward very large structures, such as entire viruses or very large proteins, in excess of hundreds of millions of atoms, in order to detect the presence of bubbles. Burbuja may be used as a command-line tool, or its functions accessed directly by means of its API.
+<p align="center">
+  <img src="docs/media/tb_no_bubble.png" width="46%" alt="System with no bubble"/>
+  &nbsp;&nbsp;
+  <img src="docs/media/tb_bubble.png" width="46%" alt="System with a bubble"/>
+</p>
+<p align="center"><em>Left: A correctly solvated trypsin–benzamidine system — no bubble detected. Right: The same system with an improperly sized periodic box, producing a visible void.</em></p>
 
-This README is only a quickstart guide to get Burbuja up and running as soon as possible. To see more detailed **instructions** and **tutorials**, please see https://burbuja.readthedocs.io/en/latest or the docs/ subfolder.
+**Key capabilities:**
+- Detects bubbles of any shape — spherical, planar, irregular, or split across periodic boundaries
+- Analyzes single structures (PDB) or full MD trajectories
+- Accepts any file format supported by [MDTraj](https://www.mdtraj.org) (AMBER, CHARMM, GROMACS, and more)
+- Works with cubic, rectangular, and triclinic simulation boxes
+- Optional GPU acceleration via [CuPy](https://cupy.dev) for large systems
+- Scales to massive systems — tested on a ~1 billion-atom respiratory aerosol trajectory
+- Use as a command-line tool or call the Python API from within your own scripts
+
+For full documentation, tutorials, and API reference, see **https://burbuja.readthedocs.io/en/latest** or the `docs/` subfolder.
+
+---
+
+## What Can Burbuja Find?
+
+Burbuja handles a wide range of void geometries and pathological solvation conditions:
+
+<p align="center">
+  <img src="docs/media/fig_bubbles_in_systems.png" width="70%" alt="Test systems with detected voids shown in red"/>
+</p>
+<p align="center"><em>Test systems with voids detected (shown in red). a) A system with incorrect truncated octahedral box vectors, producing planar-shaped voids. b) A spherical bubble split across periodic boundaries. c) A solvent-only system with a spherical bubble.</em></p>
+
+---
+
+## Trajectory Analysis
+
+Burbuja can track voids across every frame of a simulation trajectory, following their evolution as they grow or dissipate:
+
+<p align="center">
+  <img src="docs/media/fig_trajectory_bubbles.png" width="90%" alt="Bubble tracking across 10 trajectory frames"/>
+</p>
+<p align="center"><em>Ten frames from a constant-pressure MD equilibration of the trypsin–benzamidine system. Burbuja tracked the voids (red) until their disappearance, without misclassifying the periodic image of the protein (lower-right corner).</em></p>
+
+---
+
+## Scales to the Largest Systems
+
+Burbuja is designed with massive systems in mind — from typical protein–ligand complexes to entire viruses and respiratory aerosol particles:
+
+<p align="center">
+  <img src="docs/media/fig_virus_and_aerosol_particle.png" width="90%" alt="Influenza virus and respiratory aerosol analyzed with Burbuja"/>
+</p>
+<p align="center"><em>A) Influenza viral capsid (~150 million atoms): an artificially generated bubble (red sphere) was correctly detected among the glycoproteins (purple) of the viral bilayer (orange). B) Respiratory aerosol equilibration trajectory (~1 billion atoms, 5 frames): bubbles (red shapes) tracked throughout the aerosol particle (proteins: cyan; phospholipids: brown).</em></p>
+
+---
+
+## Performance
+
+Burbuja is fast on CPU and dramatically faster with GPU acceleration via CuPy. (— = not tested):
+
+| System | Size (atoms) | Frames | CPU time (s) | GPU time (s) |
+|---|---:|---:|---:|---:|
+| Trypsin–benzamidine | ~23,000 | 1 | 1.9 | 0.6 |
+| Trypsin–benzamidine | ~23,000 | 10 | 22.5 | 3.1 |
+| CG Membrane System | ~31,000 | 1 | 33.0 | 2.8 |
+| CG Membrane System | ~31,000 | 25,000 | — | ~57,000 |
+| Influenza Virion | ~150 million | 1 | ~16,000 | ~1,200 |
+| Respiratory Aerosol | ~1 billion | 1 | — | ~3,400 |
+| Respiratory Aerosol | ~1 billion | 5 | — | ~13,800 |
+
+---
 
 ## Install
 
-The easiest, quickest way to install Burbuja is to use Mamba. If you don't already have Mamba installed, Download the Miniforge install script and run.
+The easiest way to install Burbuja is with Mamba. If you don't have Mamba, install Miniforge first:
 
 ```sh
 curl -O https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh
 bash Miniforge3-$(uname)-$(uname -m).sh
 ```
 
-Once this has been done, set up a new environment:
+Create and activate a new environment:
 
 ```sh
 mamba create -n BURBUJA python=3.11 --yes
 mamba activate BURBUJA
 ```
 
-If you wish to benefit from GPU acceleration, install CuPy. See the CuPy documentation (https://docs.cupy.dev/en/stable/install.html) for detailed installation instruction for your own system using PyPI, Conda, or from Source, but if you're in a hurry, the following command should work:
+**Optional — GPU acceleration:** install [CuPy](https://docs.cupy.dev/en/stable/install.html) to enable the `-c` flag:
 
 ```sh
 mamba install cupy
 ```
 
-Next, simply install Burbuja. All remaining dependencies should be handled automatically:
+Install Burbuja (all remaining dependencies are handled automatically):
 
 ```sh
 pip install burbuja
 ```
 
-
-## Example
-
-One may try out the example systems in the Burbuja/examples/ subdirectory. Within, there are two files, "trypsin_benzamidine_bubble.pdb" and "trypsin_benzamidine_no_bubble.pdb". Try running the following commands:
+### Install from Source
 
 ```sh
-cd examples/
-burbuja trypsin_benzamidine_no_bubble.pdb
+git clone https://github.com/Abrahammc90/Burbuja.git
+cd Burbuja
+pip install .
 ```
 
-Burbuja should indicate that no bubble was present in the structure. Next, try the structure that does contain a bubble:
+---
+
+## Quick Start
+
+Example files are included in `Burbuja/tests/data/` within the repository. After cloning, try running Burbuja on the provided trypsin–benzamidine structures:
 
 ```sh
-cd examples/
-burbuja trypsin_benzamidine_bubble.pdb
+# Structure with no bubble — Burbuja should report none found
+burbuja Burbuja/tests/data/tb_traj.pdb
+
+# Structure with a bubble — Burbuja will detect and report it
+burbuja Burbuja/tests/data/tb_wrapped_bubble.pdb
 ```
 
-### Important Options and Hints
+To also get the bubble's volume, shape, and a DX density file for visualization in VMD or NGLView, add the `-d` flag:
 
-* In general, Burbuja programs can be run with the '-h' argument to see all available options. Please see https://burbuja.readthedocs.io/en/latest for a detailed description of programs and options.
+```sh
+burbuja Burbuja/tests/data/tb_wrapped_bubble.pdb -d
+```
+
+<p align="center">
+  <img src="docs/media/tb_bubble_location_size.png" width="60%" alt="Bubble location and size shown as a red isosurface"/>
+</p>
+<p align="center"><em>DX output from Burbuja loaded in VMD: the bubble is shown as a red isosurface, pinpointing its exact location and shape within the simulation box.</em></p>
+
+Burbuja can also analyze trajectories directly. The following command processes all frames of a DCD trajectory and reports per-frame bubble volumes:
+
+```sh
+burbuja Burbuja/tests/data/tb_traj.dcd -t Burbuja/tests/data/tryp_ben.prmtop -d
+```
+
+If you have CuPy installed, add `-c` to enable GPU acceleration:
+
+```sh
+burbuja Burbuja/tests/data/tb_traj.dcd -t Burbuja/tests/data/tryp_ben.prmtop -d -c
+```
+
+Run `burbuja -h` for a full list of options, or visit **https://burbuja.readthedocs.io/en/latest** for detailed tutorials and API documentation.
+
+---
 
 ## Authors and Contributors
 
-The following people have contributed directly to the coding and validation
-efforts of Burbuja (listed an alphabetical order of last name). 
-Thanks also to everyone who has helped or will help improve this project by 
-providing feedback, bug reports, or other comments.
+The following people have contributed directly to the coding and validation of Burbuja (listed alphabetically by last name).
+Thanks also to everyone who has helped improve this project through feedback, bug reports, or other contributions.
 
-* Rommie Amaro (principal investigator)
-* Abraham Muñiz Chicharro (developer)
-* Lane Votapka (developer)
+- Rommie Amaro (principal investigator)
+- Abraham Muñiz Chicharro (developer)
+- Lane Votapka (developer)
 
+---
 
-### Citing Burbuja
+## Citing Burbuja
 
-If you use Burbuja, please cite the following paper:
+If you use Burbuja in your work, please cite:
 
-* Muniz-Chicharro A, Votapka L, Amaro R. Detection of Gas Bubbles and Local Voids in Molecular Simulations using burbuja. ChemRxiv. 2025; doi:10.26434/chemrxiv-2025-rxpnd This content is a preprint and has not been peer-reviewed.
+> Muñiz-Chicharro A, Votapka LW, Amaro RE. Detection of gas bubbles and local voids in molecular simulations using burbuja. Protein Science. 2026;35(5): e70562. https://doi.org/10.1002/pro.70562
+
+---
 
 ### Copyright
 
-Copyright (c) 2025, Abraham Muñiz Chicharro and Lane Votapka
+Copyright (c) 2026, Abraham Muñiz Chicharro and Lane Votapka
